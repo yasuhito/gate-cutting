@@ -61,6 +61,31 @@ class ExperimentRefactorTest(unittest.TestCase):
         self.assertIn("collect_cx_edges", source)
         self.assertIn("cut_targets_from_edges", source)
 
+    def test_exp2_check_uses_shared_helpers_instead_of_local_stim_and_device_copies(self):
+        source_path = Path("experiments/exp2/check.py")
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+
+        local_defs = {
+            node.name
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.ClassDef))
+        }
+        self.assertNotIn("ErrorParams", local_defs)
+
+        imported_modules = {
+            node.module
+            for node in tree.body
+            if isinstance(node, ast.ImportFrom)
+        }
+        self.assertIn("gate_cutting.cut_selection", imported_modules)
+        self.assertIn("gate_cutting.device", imported_modules)
+        self.assertIn("gate_cutting.gate_cutting", imported_modules)
+        self.assertIn("gate_cutting.stim_backend", imported_modules)
+
+        source = source_path.read_text(encoding="utf-8")
+        self.assertIn("CutTarget", source)
+        self.assertIn("cut.qubits", source)
+
 
 if __name__ == "__main__":
     unittest.main()

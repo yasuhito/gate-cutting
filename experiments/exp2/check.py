@@ -4,10 +4,13 @@ import random
 import sys
 import csv
 from dataclasses import dataclass
-from itertools import product
 from pathlib import Path
 from typing import Dict, List, Tuple, Any
 from datetime import datetime, timezone, timedelta
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -21,6 +24,16 @@ from qiskit.circuit.library import HGate, SGate, XGate, YGate, ZGate, CXGate
 
 # Stim Imports
 import stim
+from gate_cutting.cut_selection import collect_cx_edges, cut_targets_from_edges
+from gate_cutting.device import parse_device
+from gate_cutting.gate_cutting import CutTarget, find_cx_cut_targets, run_gate_cut
+from gate_cutting.stim_backend import (
+    ErrorParams,
+    append_operation_with_noise as append_stim_operation_with_noise,
+    parity_expectation as stim_parity_expectation,
+    qiskit_to_stim as convert_qiskit_to_stim,
+    run_standard as run_stim_standard,
+)
 
 # External Library (Optional)
 try:
@@ -46,12 +59,6 @@ class SimulationConfig:
     cut_fidelity_threshold: float = 0.96 # これを下回ると強制カット
     optimization_level: int = 2
 
-@dataclass
-class ErrorParams:
-    one_qubit: Dict[int, float]
-    two_qubit: Dict[Tuple[int, int], float]
-    readout: Dict[int, float]
-
 # ==========================================
 # 1. Device Manager (from b2.py)
 # ==========================================
@@ -74,38 +81,11 @@ class DeviceManager:
         return json.loads(self.json_path.read_text(encoding="utf-8"))
 
     def _parse_device_data(self) -> ErrorParams:
-        one_qubit_errors = {}
-        readout_errors = {}
-        
-        # Parse Qubits
-        for q in self.raw_data.get("qubits", []):
-            qid = int(q["id"])
-            fid = float(q.get("fidelity", 1.0))
-            self.one_q_fidelities[qid] = fid
-            
-            pos = q.get("position", {})
-            if "x" in pos and "y" in pos:
-                self.qubit_coords[qid] = (float(pos["x"]), float(pos["y"]))
-            else:
-                self.qubit_coords[qid] = (qid, 0)
-                
-            one_qubit_errors[qid] = max(0.0, 1.0 - fid)
-            meas = q.get("meas_error", {})
-            readout_errors[qid] = max(0.0, meas.get("readout_assignment_error", 0.0))
-
-        # Parse Couplings
-        two_qubit_errors = {}
-        for c in self.raw_data.get("couplings", []):
-            u, v = int(c["control"]), int(c["target"])
-            fid = float(c["fidelity"])
-            self.cx_fidelities[(u, v)] = fid
-            if "reverse_fidelity" in c:
-                self.cx_fidelities[(v, u)] = float(c["reverse_fidelity"])
-            
-            p = max(0.0, 1.0 - fid)
-            two_qubit_errors[(u, v)] = p
-
-        return ErrorParams(one_qubit_errors, two_qubit_errors, readout_errors)
+        parsed = parse_device(self.raw_data)
+        self.cx_fidelities = parsed.cx_fidelities
+        self.one_q_fidelities = parsed.one_q_fidelities
+        self.qubit_coords = parsed.qubit_coords
+        return parsed.error_params
 
     def generate_qubit_json_corrected(self, width: int = 4, height: int = 4) -> dict:
         """デバイスデータがない場合のランダム生成ロジック"""
@@ -200,16 +180,36 @@ class MIPCutFinder:
             G.add_node(i, pos=pos, fidelity=fid_1q)
             
         # エッジ追加
-        for instruction in circuit.data:
-            if instruction.operation.name != "cx":
-                continue
-            c_idx = circuit.find_bit(instruction.qubits[0]).index
-            t_idx = circuit.find_bit(instruction.qubits[1]).index
-            fid_cx = self.dm.cx_fidelities.get((c_idx, t_idx), 1.0)
-            G.add_edge(c_idx, t_idx, gate="cx", fidelity=fid_cx)
+        cx_edges = collect_cx_edges(circuit, self.dm.cx_fidelities)
+        G.graph["cx_edges"] = cx_edges
+        for edge in cx_edges:
+            c_idx, t_idx = edge.qubits
+            G.add_edge(
+                c_idx,
+                t_idx,
+                gate="cx",
+                fidelity=edge.fidelity,
+                instruction_index=edge.instruction_index,
+                source_instruction_index=edge.source_instruction_index,
+                edge_index=edge.edge_index,
+            )
         return G
 
-    def solve(self, G: nx.MultiDiGraph, max_cuts: int = 3, cut_fidelity_threshold: float = 0.96) -> List[Tuple[int, int]]:
+    def _cut_targets_from_edge_indices(self, G: nx.MultiDiGraph, edges, selected_edge_indices) -> List[CutTarget]:
+        cx_edges = G.graph.get("cx_edges")
+        if cx_edges is not None:
+            return cut_targets_from_edges(cx_edges, selected_edge_indices=selected_edge_indices)
+
+        cut_targets = []
+        for edge_index in selected_edge_indices:
+            u, v, _, attr = edges[edge_index]
+            cut_targets.append(CutTarget(
+                instruction_index=attr.get("instruction_index", edge_index),
+                qubits=(u, v),
+            ))
+        return cut_targets
+
+    def solve(self, G: nx.MultiDiGraph, max_cuts: int = 3, cut_fidelity_threshold: float = 0.96) -> List[CutTarget]:
         nodes = list(G.nodes(data=True))
         edges = list(G.edges(keys=True, data=True))
         n_nodes = len(nodes)
@@ -294,15 +294,19 @@ class MIPCutFinder:
         
         if not res.success:
             logger.warning("MIP Solver failed. Fallback to greedy bad edge cut.")
-            return [(u, v) for u, v, _, d in edges if d.get('fidelity', 1.0) < cut_fidelity_threshold][:max_cuts]
+            fallback_edge_indices = [
+                edge[3].get('edge_index', k)
+                for k, edge in enumerate(edges)
+                if edge[3].get('fidelity', 1.0) < cut_fidelity_threshold
+            ][:max_cuts]
+            return self._cut_targets_from_edge_indices(G, edges, fallback_edge_indices)
 
-        selected_cuts = []
+        selected_edge_indices = []
         for k in range(n_edges):
             if res.x[n_nodes + k] > 0.5:
-                u, v, _, _ = edges[k]
-                selected_cuts.append((u, v))
+                selected_edge_indices.append(edges[k][3].get('edge_index', k))
                 
-        return selected_cuts
+        return self._cut_targets_from_edge_indices(G, edges, selected_edge_indices)
 
 # ==========================================
 # 4. Stim Simulator (from b2.py)
@@ -316,111 +320,28 @@ class StimGateCutSimulator:
 
     @staticmethod
     def qiskit_to_stim(qc: QuantumCircuit) -> stim.Circuit:
-        stim_circ = stim.Circuit()
-        for instruction in qc.data:
-            op = instruction.operation.name.lower()
-            qs = [qc.find_bit(q).index for q in instruction.qubits]
-            
-            if op == 'id': stim_circ.append("I", qs)
-            elif op == 'x': stim_circ.append("X", qs)
-            elif op == 'y': stim_circ.append("Y", qs)
-            elif op == 'z': stim_circ.append("Z", qs)
-            elif op == 'h': stim_circ.append("H", qs)
-            elif op == 's': stim_circ.append("S", qs)
-            elif op == 'sdg': stim_circ.append("S_DAG", qs)
-            elif op in ('cx', 'cnot'):
-                stim_circ.append("CX", qs)
-                stim_circ.append("I", qs)
-            elif op == 'measure': 
-                stim_circ.append("M", qs)
-        return stim_circ
+        return convert_qiskit_to_stim(qc)
 
     @staticmethod
     def _append_op_with_noise(circuit, op_name, targets, error_params):
-        # 簡易版実装
-        circuit.append(op_name, targets)
-        if error_params:
-            if len(targets) == 2 and op_name == "CX":
-                p = error_params.two_qubit.get(tuple(targets), 0.0)
-                if p > 0: circuit.append("DEPOLARIZE2", targets, p)
-            elif len(targets) == 1:
-                p = error_params.one_qubit.get(targets[0], 0.0)
-                if p > 0: circuit.append("DEPOLARIZE1", targets, p)
+        append_stim_operation_with_noise(circuit, op_name, targets, error_params)
 
     @staticmethod
     def get_expectation(samples: np.ndarray) -> float:
-        parities = np.sum(samples, axis=1) % 2
-        eigenvalues = 1 - 2 * parities
-        return np.mean(eigenvalues)
+        return stim_parity_expectation(samples)
 
     @classmethod
     def run_standard(cls, circuit: stim.Circuit, error_params: ErrorParams = None, shots=10000) -> float:
-        sim_circ = stim.Circuit()
-        for instruction in circuit:
-            targets = [t.value for t in instruction.targets_copy() if t.is_qubit_target]
-            cls._append_op_with_noise(sim_circ, instruction.name, targets, error_params)
-        
-        if sim_circ.num_measurements == 0:
-            active = set()
-            for inst in circuit:
-                for t in inst.targets_copy():
-                    if t.is_qubit_target: active.add(t.value)
-            sim_circ.append("M", sorted(list(active)))
-
-        sampler = sim_circ.compile_sampler()
-        samples = sampler.sample(shots=shots)
-        return cls.get_expectation(samples)
+        return run_stim_standard(circuit, shots=shots, error_params=error_params)
 
     @classmethod
-    def run_cut(cls, original_stim: stim.Circuit, cut_pairs: List[Tuple[int, int]], 
+    def run_cut(cls, original_stim: stim.Circuit, cut_pairs: List[Tuple[int, int]] | List[CutTarget], 
                 error_params: ErrorParams, shots=10000) -> float:
-        
-        cut_indices = []
-        target_set = set(cut_pairs)
-        instructions = list(original_stim)
-        
-        for i, instruction in enumerate(instructions):
-            if instruction.name == "CX":
-                targets = [t.value for t in instruction.targets_copy() if t.is_qubit_target]
-                if len(targets) == 2 and (targets[0], targets[1]) in target_set:
-                    cut_indices.append(i)
-        
-        if not cut_indices:
-            return cls.run_standard(original_stim, error_params, shots)
-
-        total_expectation = 0.0
-        
-        for combination in product(cls.DECOMPOSITION, repeat=len(cut_indices)):
-            current_coeff = 1.0
-            term_map = {}
-            for idx_in_list, term in zip(cut_indices, combination):
-                coeff, op_ctrl, op_trgt = term
-                current_coeff *= coeff
-                term_map[idx_in_list] = (op_ctrl, op_trgt)
-            
-            sub_circuit = stim.Circuit()
-            for i, instruction in enumerate(instructions):
-                targets = [t.value for t in instruction.targets_copy() if t.is_qubit_target]
-                if i in cut_indices:
-                    ctrl_q, trgt_q = targets[0], targets[1]
-                    op_c, op_t = term_map[i]
-                    if op_c != 'I': cls._append_op_with_noise(sub_circuit, op_c, [ctrl_q], error_params)
-                    if op_t != 'I': cls._append_op_with_noise(sub_circuit, op_t, [trgt_q], error_params)
-                else:
-                    cls._append_op_with_noise(sub_circuit, instruction.name, targets, error_params)
-
-            if sub_circuit.num_measurements == 0:
-                active = set()
-                for inst in original_stim:
-                    for t in inst.targets_copy():
-                        if t.is_qubit_target: active.add(t.value)
-                sub_circuit.append("M", sorted(list(active)))
-            
-            sampler = sub_circuit.compile_sampler()
-            samples = sampler.sample(shots=shots)
-            total_expectation += current_coeff * cls.get_expectation(samples)
-
-        return total_expectation
+        if cut_pairs and isinstance(cut_pairs[0], CutTarget):
+            cut_targets = list(cut_pairs)
+        else:
+            cut_targets = find_cx_cut_targets(original_stim, cut_pairs=cut_pairs)
+        return run_gate_cut(original_stim, cut_targets, error_params, shots=shots)
 
 # ==========================================
 # 5. Visualization (from e5.py)
@@ -464,7 +385,10 @@ def plot_result(raw_data, qubit_coords, one_q_fidelities, G_circuit, cut_pairs):
     for u, v, _ in G_circuit.edges(keys=True):
         used_edges_set.add((u, v))
     
-    cut_edges_set = set(cut_pairs)
+    cut_edges_set = {
+        cut.qubits if isinstance(cut, CutTarget) else tuple(cut)
+        for cut in cut_pairs
+    }
     
     normal_edges_to_draw = []
     cut_edges_to_draw = []

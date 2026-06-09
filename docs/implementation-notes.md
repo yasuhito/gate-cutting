@@ -47,7 +47,7 @@
 - `experiments/exp1/b1.py`
   - 旧実装では `qiskit_to_stim()` / `append_operation_with_noise()` をローカル定義していた。
   - 現在は `gate_cutting.stim_backend` と `gate_cutting.gate_cutting` を利用する形へ移行済み。
-- `experiments/exp2/b1.py`, `experiments/exp2/b2.py`
+- `experiments/exp2/b1.py`, `experiments/exp2/b2.py`, `experiments/exp2/check.py`
   - 旧実装では `StimGateCutSimulator.qiskit_to_stim()` / `_append_op_with_noise()` / `run_cut()` などをローカル実装していた。
   - 現在は `gate_cutting.device`, `gate_cutting.cut_selection`, `gate_cutting.stim_backend`, `gate_cutting.gate_cutting` を利用する形へ移行済み。
 
@@ -123,7 +123,7 @@ stim_circ.append("TICK")
 
 ## Gate Cutting まわり
 
-`gate_cutting/gate_cutting.py` に Gate Cutting 展開を切り出しています。`experiments/exp1/b1.py` と `experiments/exp2/b2.py` の Gate Cutting 実行は、この共通実装へ委譲し始めています。
+`gate_cutting/gate_cutting.py` に Gate Cutting 展開を切り出しています。`experiments/exp1/b1.py`, `experiments/exp2/b1.py`, `experiments/exp2/b2.py`, `experiments/exp2/check.py` の Gate Cutting 実行は、この共通実装へ委譲し始めています。
 
 - `CutTarget` は具体的な CX 命令を `instruction_index` と `qubits` で表します。
 - `find_cx_cut_targets()` は、従来の `(control, target)` ペア指定にも対応しつつ、同じペアの CX が複数ある場合に備えて instruction index 指定もできます。
