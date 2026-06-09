@@ -12,8 +12,12 @@
 ├── AGENTS.md                            # 作業ルール
 ├── gate_cutting/                        # 共通化した実装コード
 │   ├── __init__.py
+│   ├── device.py                        # device.jsonパース・ErrorParams抽出
+│   ├── gate_cutting.py                  # Gate Cutting 展開・実行
 │   └── stim_backend.py                  # Qiskit→Stim変換・ノイズ挿入
 ├── tests/                               # TDD用テスト
+│   ├── test_device.py
+│   ├── test_gate_cutting.py
 │   └── test_stim_backend.py
 ├── docs/
 │   ├── qCxT.pdf                         # 原稿PDF
@@ -109,16 +113,23 @@
 
 ## 共通モジュール
 
-Stim まわりの再利用可能な最小実装を `gate_cutting/stim_backend.py` に追加しました。
+Stim / device まわりの再利用可能な最小実装を `gate_cutting/` に追加しました。
 
 現在の主なAPI:
 
-- `ErrorParams`
-- `qiskit_to_stim()` — Qiskit風回路をStim回路へ変換。CX後の区切りは `I` ではなく `TICK`。
-- `append_operation_with_noise()` — `ErrorParams` に基づき `DEPOLARIZE1` / `DEPOLARIZE2` / readout `X_ERROR` を挿入。
-- `run_standard()` — ideal/noisy Stim回路を実行してパリティ期待値を返す。
+- `gate_cutting.device.DeviceData`
+- `gate_cutting.device.parse_device()` — device JSON から Fidelity / 座標 / `ErrorParams` を抽出。
+- `gate_cutting.device.load_device()` — device JSON ファイルを読み込んで `DeviceData` を返す。
+- `gate_cutting.stim_backend.ErrorParams`
+- `gate_cutting.stim_backend.qiskit_to_stim()` — Qiskit風回路をStim回路へ変換。CX後の区切りは `I` ではなく `TICK`。
+- `gate_cutting.stim_backend.append_operation_with_noise()` — `ErrorParams` に基づき `DEPOLARIZE1` / `DEPOLARIZE2` / readout `X_ERROR` を挿入。
+- `gate_cutting.stim_backend.run_standard()` — ideal/noisy Stim回路を実行してパリティ期待値を返す。
+- `gate_cutting.gate_cutting.CutTarget`
+- `gate_cutting.gate_cutting.find_cx_cut_targets()` — `(control, target)` または instruction index から具体的なCX切断対象を探す。
+- `gate_cutting.gate_cutting.iter_gate_cut_terms()` — Gate Cutting の各項の係数とサブ回路を生成する。
+- `gate_cutting.gate_cutting.run_gate_cut()` — Gate Cutting 展開を実行して重み付き期待値を合成する。
 
-`experiments/exp2/b2.py` は、この共通モジュールを使う形に移行し始めています。
+`experiments/exp2/b2.py` は、これらの共通モジュールを使う形に移行し始めています。
 
 ## 実行環境
 
@@ -139,7 +150,7 @@ scipy
 
 ## テスト
 
-実装は TDD で進めます。現在の軽量テストは外部の `stim` / `qiskit` が未インストールでも fake を使って実行できます。
+実装は TDD で進めます。現在の軽量テストは外部の `stim` / `qiskit` が未インストールでも fake を使って実行できます。`device.json` のパース、Stim変換、Gate Cutting 展開を unit test で固定しています。
 
 ```bash
 python -m unittest discover -v

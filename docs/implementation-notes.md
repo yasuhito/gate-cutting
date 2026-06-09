@@ -19,11 +19,20 @@
 
 共通化した実装:
 
+- `gate_cutting/device.py`
+  - `DeviceData`
+  - `parse_device()`
+  - `load_device()`
 - `gate_cutting/stim_backend.py`
   - `ErrorParams`
   - `qiskit_to_stim()`
   - `append_operation_with_noise()`
   - `run_standard()`
+- `gate_cutting/gate_cutting.py`
+  - `CutTarget`
+  - `find_cx_cut_targets()`
+  - `iter_gate_cut_terms()`
+  - `run_gate_cut()`
 
 参考になる既存実装:
 
@@ -83,7 +92,7 @@ stim_circ.append("TICK")
 - readout error
 - coupling / CX Fidelity
 
-### `load_device_data()`
+### `load_device_data()` / `gate_cutting.device`
 
 `legacy/ex2/ev1.py` の `load_device_data(data)` は、デバイスJSONから次を取り出します。
 
@@ -91,6 +100,8 @@ stim_circ.append("TICK")
 - `one_q_fidelities`
 - `qubit_coords`
 - `ErrorParams(one_qubit, two_qubit, readout)`
+
+共通モジュールでは、この処理を `gate_cutting/device.py` の `parse_device()` / `load_device()` に切り出しています。
 
 `ErrorParams` は Stim でノイズを挿入するためのエラーレート集合です。
 
@@ -105,6 +116,15 @@ stim_circ.append("TICK")
 - 測定前/測定時: readout error 用の `X_ERROR` など
 
 この処理により、`device.json` の Fidelity / error 情報を使ったノイズ付き Stim 回路を作れます。
+
+## Gate Cutting まわり
+
+`gate_cutting/gate_cutting.py` に Gate Cutting 展開を切り出しています。
+
+- `CutTarget` は具体的な CX 命令を `instruction_index` と `qubits` で表します。
+- `find_cx_cut_targets()` は、従来の `(control, target)` ペア指定にも対応しつつ、同じペアの CX が複数ある場合に備えて instruction index 指定もできます。
+- `iter_gate_cut_terms()` は、`0.5(II + ZI + IX - ZX)` の各項に対応するサブ回路を生成します。
+- `run_gate_cut()` は、各サブ回路の期待値を係数付きで合成します。
 
 ## MIP まわり
 

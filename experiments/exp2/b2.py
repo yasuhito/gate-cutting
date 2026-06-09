@@ -4,10 +4,13 @@ import random
 import sys
 import csv
 from dataclasses import dataclass
-from itertools import product
 from pathlib import Path
 from typing import Dict, List, Tuple, Any
 from datetime import datetime, timezone, timedelta
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import networkx as nx
 import numpy as np
@@ -20,7 +23,10 @@ from qiskit.circuit.library import HGate, SGate, XGate, YGate, ZGate, CXGate
 
 # Stim Imports
 import stim
+from gate_cutting.device import parse_device
+from gate_cutting.gate_cutting import find_cx_cut_targets, run_gate_cut
 from gate_cutting.stim_backend import (
+    ErrorParams,
     append_operation_with_noise as append_stim_operation_with_noise,
     parity_expectation as stim_parity_expectation,
     qiskit_to_stim as convert_qiskit_to_stim,
@@ -52,12 +58,6 @@ class SimulationConfig:
     cut_fidelity_threshold: float = 0.96 # これを下回ると強制カット
     optimization_level: int = 2
 
-@dataclass
-class ErrorParams:
-    one_qubit: Dict[int, float]
-    two_qubit: Dict[Tuple[int, int], float]
-    readout: Dict[int, float]
-
 # ==========================================
 # 1. Device Manager (a1.py base + e5.py adaptation)
 # ==========================================
@@ -81,39 +81,11 @@ class DeviceManager:
         return json.loads(self.json_path.read_text(encoding="utf-8"))
 
     def _parse_device_data(self) -> ErrorParams:
-        one_qubit_errors = {}
-        readout_errors = {}
-        
-        # Parse Qubits
-        for q in self.raw_data.get("qubits", []):
-            qid = int(q["id"])
-            fid = float(q.get("fidelity", 1.0))
-            self.one_q_fidelities[qid] = fid
-            
-            pos = q.get("position", {})
-            if "x" in pos and "y" in pos:
-                self.qubit_coords[qid] = (float(pos["x"]), float(pos["y"]))
-            else:
-                self.qubit_coords[qid] = (qid, 0)
-                
-            # Error rates for Stim
-            one_qubit_errors[qid] = max(0.0, 1.0 - fid)
-            meas = q.get("meas_error", {})
-            readout_errors[qid] = max(0.0, meas.get("readout_assignment_error", 0.0))
-
-        # Parse Couplings
-        two_qubit_errors = {}
-        for c in self.raw_data.get("couplings", []):
-            u, v = int(c["control"]), int(c["target"])
-            fid = float(c["fidelity"])
-            self.cx_fidelities[(u, v)] = fid
-            if "reverse_fidelity" in c:
-                self.cx_fidelities[(v, u)] = float(c["reverse_fidelity"])
-            
-            p = max(0.0, 1.0 - fid)
-            two_qubit_errors[(u, v)] = p
-
-        return ErrorParams(one_qubit_errors, two_qubit_errors, readout_errors)
+        parsed = parse_device(self.raw_data)
+        self.cx_fidelities = parsed.cx_fidelities
+        self.one_q_fidelities = parsed.one_q_fidelities
+        self.qubit_coords = parsed.qubit_coords
+        return parsed.error_params
 
     def generate_qubit_json_corrected(self, width: int = 4, height: int = 4) -> dict:
         """g.py のロジックに基づくデバイスJSON生成"""
@@ -563,73 +535,8 @@ class StimGateCutSimulator:
     def run_cut(cls, original_stim: stim.Circuit, cut_pairs: List[Tuple[int, int]], 
                 error_params: ErrorParams, shots=10000) -> float:
         """Gate Cuttingシミュレーション (Stim版)"""
-        
-        # 1. カット対象の命令インデックスを特定
-        cut_indices = []
-        target_set = set(cut_pairs)
-        
-        # Stimの命令をリスト化してインデックスで管理
-        instructions = list(original_stim)
-        
-        for i, instruction in enumerate(instructions):
-            if instruction.name == "CX":
-                targets = [t.value for t in instruction.targets_copy() if t.is_qubit_target]
-                if len(targets) == 2:
-                    if (targets[0], targets[1]) in target_set:
-                        cut_indices.append(i)
-        
-        if not cut_indices:
-            return cls.run_standard(original_stim, error_params, shots)
-
-        total_expectation = 0.0
-        
-        # 2. 全組み合わせ展開 (4^k)
-        for combination in product(cls.DECOMPOSITION, repeat=len(cut_indices)):
-            current_coeff = 1.0
-            term_map = {}
-            for idx_in_list, term in zip(cut_indices, combination):
-                coeff, op_ctrl, op_trgt = term
-                current_coeff *= coeff
-                term_map[idx_in_list] = (op_ctrl, op_trgt)
-            
-            sub_circuit = stim.Circuit()
-            
-            for i, instruction in enumerate(instructions):
-                targets = [t.value for t in instruction.targets_copy() if t.is_qubit_target]
-                
-                if i in cut_indices:
-                    # CXを切断してローカル操作に置換
-                    ctrl_q, trgt_q = targets[0], targets[1]
-                    op_c, op_t = term_map[i]
-                    
-                    # Control側
-                    if op_c != 'I':
-                        cls._append_op_with_noise(sub_circuit, op_c, [ctrl_q], error_params)
-                    
-                    # Target側
-                    if op_t != 'I':
-                        cls._append_op_with_noise(sub_circuit, op_t, [trgt_q], error_params)
-                        
-                    # 注: ここでCXそのものは追加しない（カットされているため）
-                else:
-                    cls._append_op_with_noise(sub_circuit, instruction.name, targets, error_params)
-
-            # 測定追加
-            if sub_circuit.num_measurements == 0:
-                active = set()
-                for inst in original_stim:
-                    for t in inst.targets_copy():
-                        if t.is_qubit_target: active.add(t.value)
-                sub_circuit.append("M", sorted(list(active)))
-            
-            # 実行
-            sampler = sub_circuit.compile_sampler()
-            samples = sampler.sample(shots=shots)
-            term_exp = cls.get_expectation(samples)
-            
-            total_expectation += current_coeff * term_exp
-
-        return total_expectation
+        cut_targets = find_cx_cut_targets(original_stim, cut_pairs=cut_pairs)
+        return run_gate_cut(original_stim, cut_targets, error_params, shots=shots)
 
 # ==========================================
 # 5. Experiment Runner
