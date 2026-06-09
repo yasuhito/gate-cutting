@@ -39,6 +39,11 @@
   - `find_cx_cut_targets()`
   - `iter_gate_cut_terms()`
   - `run_gate_cut()`
+- `gate_cutting/mip.py`
+  - `CutGraph`
+  - `MIPCutFinder`
+  - `build_cut_graph()`
+  - `select_low_fidelity_cut_targets()`
 
 参考になる既存実装:
 
@@ -137,6 +142,8 @@ stim_circ.append("TICK")
 `experiments/exp2/` の `MIPCutFinder` は、回路中の CX をグラフのエッジとして扱い、Fidelity が低いエッジを優先して切断対象にします。
 
 `gate_cutting/cut_selection.py` では、Qiskit風回路の CX 命令を `CircuitEdge` として集め、MIPで選ばれた edge index を `CutTarget` に変換します。`CutTarget.instruction_index` は、`qiskit_to_stim()` で `TICK` を挿入した後の Stim 回路上の CX index です。これにより、同じ `(control, target)` の CX が複数ある場合でも、MIPが選んだ具体的なゲートだけを切断できます。
+
+`gate_cutting/mip.py` には `MIPCutFinder` を切り出しています。NetworkX/SciPy がある研究実行環境ではMILPを使い、軽量テスト環境など依存がない場合は低Fidelity edgeを悪い順に選ぶ greedy fallback を使います。
 
 大まかな流れ:
 

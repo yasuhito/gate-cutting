@@ -11,10 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-import networkx as nx
 import numpy as np
-from scipy.optimize import milp, LinearConstraint, Bounds
-from scipy.sparse import coo_matrix
 
 # Qiskit Imports
 from qiskit import QuantumCircuit
@@ -22,9 +19,9 @@ from qiskit.circuit.library import HGate, SGate, XGate, YGate, ZGate, CXGate
 
 # Stim Imports
 import stim
-from gate_cutting.cut_selection import collect_cx_edges, cut_targets_from_edges
 from gate_cutting.device import parse_device
 from gate_cutting.gate_cutting import CutTarget, find_cx_cut_targets, run_gate_cut
+from gate_cutting.mip import MIPCutFinder
 from gate_cutting.stim_backend import (
     ErrorParams,
     append_operation_with_noise as append_stim_operation_with_noise,
@@ -110,155 +107,9 @@ class CircuitGenerator:
         return qc
 
 # ==========================================
-# 3. MIP Solver (e5.py Logic Adapted)
+# 3. MIP Solver
 # ==========================================
-
-class MIPCutFinder:
-    """MIPを用いて最適なカット箇所(CXゲート)を探索する。e5.pyのBoundsロジックを採用"""
-    def __init__(self, device_manager: DeviceManager):
-        self.dm = device_manager
-
-    def build_graph(self, circuit: QuantumCircuit) -> nx.MultiDiGraph:
-        G = nx.MultiDiGraph()
-        # ノード追加
-        for i in range(circuit.num_qubits):
-            pos = self.dm.qubit_coords.get(i, (i, 0))
-            fid_1q = self.dm.one_q_fidelities.get(i, 1.0)
-            G.add_node(i, pos=pos, fidelity=fid_1q)
-            
-        # エッジ追加
-        cx_edges = collect_cx_edges(circuit, self.dm.cx_fidelities)
-        G.graph["cx_edges"] = cx_edges
-        for edge in cx_edges:
-            c_idx, t_idx = edge.qubits
-            # Fidelityと元の命令位置を属性として保持
-            G.add_edge(
-                c_idx,
-                t_idx,
-                gate="cx",
-                fidelity=edge.fidelity,
-                instruction_index=edge.instruction_index,
-                source_instruction_index=edge.source_instruction_index,
-                edge_index=edge.edge_index,
-            )
-        return G
-
-    def _cut_targets_from_edge_indices(self, G: nx.MultiDiGraph, edges, selected_edge_indices) -> List[CutTarget]:
-        cx_edges = G.graph.get("cx_edges")
-        if cx_edges is not None:
-            return cut_targets_from_edges(cx_edges, selected_edge_indices=selected_edge_indices)
-
-        cut_targets = []
-        for edge_index in selected_edge_indices:
-            u, v, _, attr = edges[edge_index]
-            cut_targets.append(CutTarget(
-                instruction_index=attr.get("instruction_index", edge_index),
-                qubits=(u, v),
-            ))
-        return cut_targets
-
-    def solve(self, G: nx.MultiDiGraph, max_cuts: int = 3, cut_fidelity_threshold: float = 0.96) -> List[CutTarget]:
-        nodes = list(G.nodes(data=True))
-        edges = list(G.edges(keys=True, data=True))
-        n_nodes = len(nodes)
-        n_edges = len(edges)
-        if n_edges == 0: return []
-
-        node_to_idx = {n[0]: i for i, n in enumerate(nodes)}
-        n_vars = n_nodes + n_edges # [x_0...x_n, z_0...z_m]
-        
-        # === 目的関数 (Objective) ===
-        c = np.zeros(n_vars)
-        
-        # === 変数の境界値 (Bounds) ===
-        # e5.py logic: 悪いエッジに対応する z_k は lower_bound=1.0 (必ず切る) に設定
-        lower_bounds = np.zeros(n_vars)
-        upper_bounds = np.ones(n_vars)
-        
-        forced_cuts_count = 0
-        
-        for k in range(n_edges):
-            u, v, _, attr = edges[k]
-            fid = attr.get('fidelity', 1.0)
-            
-            if fid < cut_fidelity_threshold:
-                # 強制カット
-                c[n_nodes + k] = 0.0 
-                lower_bounds[n_nodes + k] = 1.0
-                forced_cuts_count += 1
-            else:
-                # 良いエッジは切りたくない (Fidelityが高いほどコスト増)
-                error_rate = max(1.0 - fid, 1e-9)
-                weight = fid / error_rate
-                c[n_nodes + k] = weight
-
-        # === 制約 (Constraints) ===
-        rows, cols, vals = [], [], []
-        b_l, b_u = [], []
-        constraint_idx = 0
-        
-        # 1. 切断の論理制約: z_k >= |x_u - x_v|
-        for k in range(n_edges):
-            u, v, _, _ = edges[k]
-            u_idx = node_to_idx[u]
-            v_idx = node_to_idx[v]
-            z_idx = n_nodes + k
-            
-            # -x_u + x_v + z_k >= 0
-            rows.extend([constraint_idx]*3); cols.extend([u_idx, v_idx, z_idx]); vals.extend([-1, 1, 1])
-            b_l.append(0); b_u.append(np.inf); constraint_idx += 1
-            # x_u - x_v + z_k >= 0
-            rows.extend([constraint_idx]*3); cols.extend([u_idx, v_idx, z_idx]); vals.extend([1, -1, 1])
-            b_l.append(0); b_u.append(np.inf); constraint_idx += 1
-
-        # 2. カット数上限 (強制カット分はカウントされるが、上限を超えてもBounds優先で解なしになるのを防ぐため考慮が必要)
-        # ここでは e5.py の緩和されたバランス制約を採用する代わりに、単純な個数制限は一旦外すか、緩める。
-        # 今回は a1.py の max_cuts を尊重しつつ、強制カットが多い場合は警告を出す運用にする。
-        
-        # カット数制限（zの総和 <= max_cuts）
-        if forced_cuts_count <= max_cuts:
-            for k in range(n_edges):
-                z_idx = n_nodes + k
-                rows.append(constraint_idx); cols.append(z_idx); vals.append(1)
-            b_l.append(0); b_u.append(max_cuts); constraint_idx += 1
-        else:
-            logger.warning(f"Forced cuts ({forced_cuts_count}) exceed max_cuts ({max_cuts}). Ignoring max_cuts constraint.")
-
-        # 3. バランス制約 (Min Partition Ratio) - e5.py からの移植
-        # 極端な断片化を許容するため 0.0 に設定 (a1.pyにはなかったが導入)
-        min_partition_ratio = 0.0
-        total_node_fidelity = sum(d.get('fidelity', 1.0) for _, d in nodes)
-        min_limit = total_node_fidelity * min_partition_ratio
-        max_limit = total_node_fidelity * (1.0 - min_partition_ratio)
-        
-        for i in range(n_nodes):
-            weight = nodes[i][1].get('fidelity', 1.0)
-            rows.append(constraint_idx); cols.append(i); vals.append(weight)
-        b_l.append(min_limit); b_u.append(max_limit); constraint_idx += 1
-
-        # ソルバ実行
-        A = coo_matrix((vals, (rows, cols)), shape=(constraint_idx, n_vars))
-        res = milp(
-            c=c, 
-            constraints=LinearConstraint(A, b_l, b_u), 
-            integrality=np.ones(n_vars), 
-            bounds=Bounds(lower_bounds, upper_bounds)
-        )
-        
-        if not res.success:
-            logger.warning("MIP Solver failed. Returning strictly low fidelity edges as fallback.")
-            fallback_edge_indices = [
-                edge[3].get('edge_index', k)
-                for k, edge in enumerate(edges)
-                if edge[3].get('fidelity', 1.0) < cut_fidelity_threshold
-            ]
-            return self._cut_targets_from_edge_indices(G, edges, fallback_edge_indices)
-
-        selected_edge_indices = []
-        for k in range(n_edges):
-            if res.x[n_nodes + k] > 0.5:
-                selected_edge_indices.append(edges[k][3].get('edge_index', k))
-        return self._cut_targets_from_edge_indices(G, edges, selected_edge_indices)
+# Shared MIPCutFinder is imported from gate_cutting.mip.
 
 # ==========================================
 # 4. Stim Simulator (New: Replaces GateCutSimulator)
