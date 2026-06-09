@@ -270,7 +270,7 @@
 <tr><td>Device parsing</td><td>完了</td><td><code>device.json</code> から Fidelity / error / readout / 座標を抽出。</td></tr>
 <tr><td>CX 後の区切り</td><td>完了</td><td><code>I</code> ではなく <code>TICK</code> を使う。実 Stim smoke test で noiseless expectation が変わらないことを確認。</td></tr>
 <tr><td>Gate Cutting target</td><td>完了</td><td><code>CutTarget(instruction_index, qubits, fidelity)</code> で、同一 qubit pair の複数 CX も区別する。</td></tr>
-<tr><td>MIP cut selection</td><td>完了</td><td>greedy fallback は廃止。SciPy <code>milp</code> 必須で、solver 失敗時はエラーにする。</td></tr>
+<tr><td>MIP cut selection</td><td>完了</td><td>SciPy <code>milp</code> で切断対象を選択し、solver 失敗時はエラーにする。</td></tr>
 <tr><td>テスト</td><td>完了</td><td>unit test に加えて、<code>strict=False</code> warning、TICK smoke、noiseless Gate Cutting sanity を追加。</td></tr>
 <tr><td>後回し</td><td>Backlog</td><td>Wire Cutting 全面整理、Tranqu 連携整理、QASM ベンチマーク、パッケージ公開整備。</td></tr>
 </tbody>
@@ -445,7 +445,7 @@ readout error を入れる</h3>
 <li><code>lookup_two_qubit_error(error_params, u, v)</code>
 のような関数を作る。</li>
 <li>デバイスが方向付き Fidelity を持つなら方向を尊重する。</li>
-<li>方向なしとして扱いたい場合だけ fallback で逆向きを見る。</li>
+<li>方向なしとして扱いたい場合だけ逆向きも参照する。</li>
 </ul>
 <h3 id="34-unsupported-gate-は黙って無視しない">3.4 unsupported gate
 は黙って無視しない</h3>

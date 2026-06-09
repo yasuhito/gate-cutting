@@ -401,15 +401,15 @@ stim_circ.append("TICK")</code></pre>
     </section>
 
     <section>
-      <h2>MIP は SciPy 必須</h2>
+      <h2>MIP による切断対象選択</h2>
       <div class="grid grid-2">
         <article class="card">
-          <h3>研究実行環境</h3>
-          <p>NetworkX / SciPy を必須依存として入れ、CX をグラフ edge として扱い、SciPy の <code>milp</code> で切断対象を選びます。</p>
+          <h3>グラフ化</h3>
+          <p>回路中の CX を <code>CircuitEdge</code> として集め、デバイス Fidelity と Stim 上の instruction index を保持します。</p>
         </article>
         <article class="card ok">
-          <h3>fallback なし</h3>
-          <p>greedy fallback は廃止しました。SciPy が無い、または MILP solver が失敗した場合は、結果を曖昧にせずエラーとして止めます。選ばれた edge の Fidelity は <code>CutTarget.fidelity</code> に残します。</p>
+          <h3>MILP 解</h3>
+          <p>SciPy の <code>milp</code> で切断対象 edge を選び、選ばれた edge の Fidelity を <code>CutTarget.fidelity</code> に残します。</p>
         </article>
       </div>
     </section>
