@@ -28,7 +28,7 @@ def generated_circuit(seed=1, num_qubits=4, depth=2):
     )
 
 
-class CircuitGeneratorTest(unittest.TestCase):
+class RandomCliffordCircuitTest(unittest.TestCase):
     def test_random_clifford_circuit_is_deterministic_with_seed(self):
         a = generated_circuit(seed=123, num_qubits=6, depth=3)
         b = generated_circuit(seed=123, num_qubits=6, depth=3)
@@ -51,19 +51,15 @@ class CircuitGeneratorTest(unittest.TestCase):
 
         self.assertTrue(all(q < circuit.num_qubits for op in circuit.operations for q in op[1:]))
 
-    def test_circuit_generator_class_preserves_requested_qubit_count(self):
-        from gate_cutting.circuits import CircuitGenerator
-
-        circuit = CircuitGenerator.random_clifford(4, 2, seed=7, circuit_factory=FakeQuantumCircuit)
+    def test_random_clifford_circuit_preserves_requested_qubit_count(self):
+        circuit = generated_circuit(seed=7, num_qubits=4, depth=2)
 
         self.assertEqual(circuit.num_qubits, 4)
 
-    def test_circuit_generator_class_emits_operations(self):
-        from gate_cutting.circuits import CircuitGenerator
+    def test_circuits_module_does_not_expose_compatibility_class(self):
+        import gate_cutting.circuits as circuits
 
-        circuit = CircuitGenerator.random_clifford(4, 2, seed=7, circuit_factory=FakeQuantumCircuit)
-
-        self.assertTrue(circuit.operations)
+        self.assertFalse(hasattr(circuits, "CircuitGenerator"))
 
 
 if __name__ == "__main__":

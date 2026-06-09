@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import random
-from typing import Any, Callable
-
+from collections.abc import Callable
+from typing import Any
 
 SINGLE_QUBIT_CLIFFORD_GATES: tuple[str, ...] = ("h", "s", "sdg", "x", "y", "z")
 
@@ -55,25 +55,3 @@ def random_clifford_circuit(
 
     return circuit
 
-
-class CircuitGenerator:
-    """Backward-compatible wrapper for experiment scripts."""
-
-    @staticmethod
-    def random_clifford(
-        num_qubits: int,
-        depth: int,
-        seed: int | None = None,
-        *,
-        circuit_factory: Callable[[int], Any] | None = None,
-        single_qubit_probability: float = 0.6,
-        cx_probability: float = 1.0,
-    ) -> Any:
-        return random_clifford_circuit(
-            num_qubits,
-            depth,
-            seed=seed,
-            circuit_factory=circuit_factory,
-            single_qubit_probability=single_qubit_probability,
-            cx_probability=cx_probability,
-        )

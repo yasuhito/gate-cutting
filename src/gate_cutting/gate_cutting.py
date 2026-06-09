@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from itertools import product
-from typing import Any, Iterable, Iterator, Sequence
+from typing import Any
 
 from . import stim_backend
-from .stim_backend import ErrorParams, active_qubits, append_operation_with_noise, run_standard, sample_expectation
-
+from .stim_backend import (
+    ErrorParams,
+    active_qubits,
+    append_operation_with_noise,
+    run_standard,
+    sample_expectation,
+)
 
 CX_DECOMPOSITION: tuple[tuple[float, str, str], ...] = (
     (0.5, "I", "I"),
@@ -43,9 +49,9 @@ def find_cx_cut_targets(
 ) -> list[CutTarget]:
     """Find concrete CX instructions to cut.
 
-    ``cut_pairs`` preserves the legacy API where MIP returns ``(control,
-    target)`` pairs.  ``instruction_indices`` is the preferred precise API; it
-    can distinguish repeated CX gates on the same qubit pair.
+    ``instruction_indices`` is the precise selection path and can distinguish
+    repeated CX gates on the same qubit pair.  ``cut_pairs`` is available when
+    only qubit pairs are known.
     """
 
     pair_set = set(cut_pairs or [])
@@ -99,7 +105,7 @@ def iter_gate_cut_terms(
     for combination in product(decomposition, repeat=len(cuts)):
         coefficient = 1.0
         term_by_index: dict[int, tuple[str, str]] = {}
-        for cut, term in zip(cuts, combination):
+        for cut, term in zip(cuts, combination, strict=True):
             term_coeff, control_op, target_op = term
             coefficient *= term_coeff
             term_by_index[cut.instruction_index] = (control_op, target_op)

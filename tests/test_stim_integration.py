@@ -7,7 +7,6 @@ from gate_cutting import stim_backend
 from gate_cutting.gate_cutting import CutTarget, run_gate_cut
 from gate_cutting.stim_backend import ErrorParams, qiskit_to_stim, run_standard
 
-
 EMPTY_ERRORS = ErrorParams(one_qubit={}, two_qubit={}, readout={})
 
 

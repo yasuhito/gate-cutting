@@ -1,6 +1,6 @@
 import ast
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 
 def top_level_defs(path: str) -> set[str]:
@@ -52,6 +52,9 @@ class ExperimentRefactorTest(unittest.TestCase):
     def test_exp1_b1_imports_shared_stim_backend(self):
         self.assertIn("gate_cutting.stim_backend", imported_modules("experiments/exp1/b1.py"))
 
+    def test_exp1_b1_adds_src_root_for_source_layout_imports(self):
+        self.assertIn("SRC_ROOT", Path("experiments/exp1/b1.py").read_text(encoding="utf-8"))
+
     def test_exp2_b1_does_not_define_circuit_generator(self):
         self.assertNotIn("CircuitGenerator", top_level_defs("experiments/exp2/b1.py"))
 
@@ -76,6 +79,9 @@ class ExperimentRefactorTest(unittest.TestCase):
     def test_exp2_b1_imports_shared_stim_backend(self):
         self.assertIn("gate_cutting.stim_backend", imported_modules("experiments/exp2/b1.py"))
 
+    def test_exp2_b1_adds_src_root_for_source_layout_imports(self):
+        self.assertIn("SRC_ROOT", Path("experiments/exp2/b1.py").read_text(encoding="utf-8"))
+
     def test_exp2_b2_does_not_define_circuit_generator(self):
         self.assertNotIn("CircuitGenerator", top_level_defs("experiments/exp2/b2.py"))
 
@@ -87,6 +93,9 @@ class ExperimentRefactorTest(unittest.TestCase):
 
     def test_exp2_b2_imports_shared_mip(self):
         self.assertIn("gate_cutting.mip", imported_modules("experiments/exp2/b2.py"))
+
+    def test_exp2_b2_adds_src_root_for_source_layout_imports(self):
+        self.assertIn("SRC_ROOT", Path("experiments/exp2/b2.py").read_text(encoding="utf-8"))
 
     def test_exp2_check_does_not_define_circuit_generator(self):
         self.assertNotIn("CircuitGenerator", top_level_defs("experiments/exp2/check.py"))
@@ -115,6 +124,9 @@ class ExperimentRefactorTest(unittest.TestCase):
     def test_exp2_check_handles_cut_target_objects_in_visualization(self):
         self.assertIn("cut.qubits", Path("experiments/exp2/check.py").read_text(encoding="utf-8"))
 
+    def test_exp2_check_adds_src_root_for_source_layout_imports(self):
+        self.assertIn("SRC_ROOT", Path("experiments/exp2/check.py").read_text(encoding="utf-8"))
+
     def test_exp2_benchmark_phase1_imports_b2_via_package_path(self):
         self.assertIn("experiments.exp2.b2", all_imported_modules("experiments/exp2/benchmark_phase1.py"))
 
@@ -132,6 +144,12 @@ class ExperimentRefactorTest(unittest.TestCase):
 
     def test_exp2_benchmark_phase2_sets_project_root(self):
         self.assertIn("PROJECT_ROOT", Path("experiments/exp2/benchmark_phase2.py").read_text(encoding="utf-8"))
+
+    def test_exp2_benchmark_phase1_adds_src_root_for_source_layout_imports(self):
+        self.assertIn("SRC_ROOT", Path("experiments/exp2/benchmark_phase1.py").read_text(encoding="utf-8"))
+
+    def test_exp2_benchmark_phase2_adds_src_root_for_source_layout_imports(self):
+        self.assertIn("SRC_ROOT", Path("experiments/exp2/benchmark_phase2.py").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

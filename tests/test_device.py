@@ -1,7 +1,6 @@
 import unittest
 from pathlib import Path
 
-
 SAMPLE_DEVICE = {
     "name": "mini",
     "qubits": [

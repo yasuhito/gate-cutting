@@ -39,8 +39,20 @@ class CutSelectionTest(unittest.TestCase):
         self.assertEqual(
             edges,
             [
-                CircuitEdge(edge_index=0, instruction_index=1, qubits=(0, 1), fidelity=0.75, source_instruction_index=1),
-                CircuitEdge(edge_index=1, instruction_index=3, qubits=(0, 1), fidelity=0.75, source_instruction_index=2),
+                CircuitEdge(
+                    edge_index=0,
+                    instruction_index=1,
+                    qubits=(0, 1),
+                    fidelity=0.75,
+                    source_instruction_index=1,
+                ),
+                CircuitEdge(
+                    edge_index=1,
+                    instruction_index=3,
+                    qubits=(0, 1),
+                    fidelity=0.75,
+                    source_instruction_index=2,
+                ),
             ],
         )
 

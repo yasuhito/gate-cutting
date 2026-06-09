@@ -1,6 +1,6 @@
 import ast
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 
 class TestStyleTest(unittest.TestCase):
@@ -9,7 +9,12 @@ class TestStyleTest(unittest.TestCase):
         for path in sorted(Path("tests").glob("test_*.py")):
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for class_node in [node for node in tree.body if isinstance(node, ast.ClassDef)]:
-                for test_node in [node for node in class_node.body if isinstance(node, ast.FunctionDef) and node.name.startswith("test")]:
+                test_nodes = [
+                    node
+                    for node in class_node.body
+                    if isinstance(node, ast.FunctionDef) and node.name.startswith("test")
+                ]
+                for test_node in test_nodes:
                     assertion_count = sum(
                         1
                         for node in ast.walk(test_node)

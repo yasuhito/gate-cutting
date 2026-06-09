@@ -7,10 +7,13 @@ import numpy as np
 from tqdm import tqdm
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+SRC_ROOT = PROJECT_ROOT / "src"
+for import_root in (PROJECT_ROOT, SRC_ROOT):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
 
-from experiments.exp2.b2 import DeviceManager, CircuitGenerator, MIPCutFinder, StimGateCutSimulator
+from gate_cutting.circuits import random_clifford_circuit
+from experiments.exp2.b2 import DeviceManager, MIPCutFinder, StimGateCutSimulator
 
 # ログレベルの調整（不要なログを抑制）
 logging.getLogger('experiments.exp2.b2').setLevel(logging.ERROR)
@@ -45,8 +48,8 @@ def run_b1_benchmark(n_qubits=10,
         for _ in tqdm(range(trials), desc=f"Max Cuts = {k}"):
 
             # TODO: デバッグ
-            # 1. ランダム回路生成 (b1.pyのGeneratorを使用)
-            qc = CircuitGenerator.random_clifford(n_qubits, depth)
+            # 1. ランダム回路生成
+            qc = random_clifford_circuit(n_qubits, depth)
 
             # デバイスマネージャの初期化（ランダムチップ）
             dm = DeviceManager(None)

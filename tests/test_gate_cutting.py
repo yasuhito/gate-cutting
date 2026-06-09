@@ -1,5 +1,4 @@
 import importlib
-import types
 import unittest
 
 import numpy as np
@@ -80,7 +79,7 @@ class GateCuttingTest(unittest.TestCase):
 
         self.assertEqual(cuts, [self.gc.CutTarget(instruction_index=2, qubits=(0, 1))])
 
-    def test_find_cx_cut_targets_supports_legacy_cut_pairs(self):
+    def test_find_cx_cut_targets_supports_pair_based_selection(self):
         circuit = FakeStimCircuit()
         circuit.append("CX", [0, 1])
         circuit.append("TICK")

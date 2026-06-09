@@ -80,6 +80,7 @@ class MIPHelperTest(unittest.TestCase):
 
     def test_solve_cut_graph_calls_scipy_milp(self):
         import scipy.optimize
+
         from gate_cutting.mip import MIPCutFinder
 
         calls = []
@@ -99,6 +100,7 @@ class MIPHelperTest(unittest.TestCase):
 
     def test_solve_cut_graph_raises_when_mip_solver_fails(self):
         import scipy.optimize
+
         from gate_cutting.mip import MIPCutFinder
 
         real_milp = scipy.optimize.milp

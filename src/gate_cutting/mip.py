@@ -8,8 +8,9 @@ simple parsing paths, but every solver path goes through ``scipy.optimize.milp``
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -108,7 +109,9 @@ class MIPCutFinder:
         try:
             import networkx as nx
         except ModuleNotFoundError as exc:  # pragma: no cover - env dependent.
-            raise ModuleNotFoundError("networkx is required for build_graph(); install networkx before running experiments") from exc
+            raise ModuleNotFoundError(
+                "networkx is required for build_graph(); install networkx before running experiments"
+            ) from exc
 
         cut_graph = self.build_cut_graph(circuit)
         graph = nx.MultiDiGraph()
@@ -234,7 +237,12 @@ class MIPCutFinder:
         )
         return cut_targets_from_edges(cut_graph.edges, selected_edge_indices=selected_edge_indices)
 
-    def _cut_targets_from_edge_indices(self, graph: Any, edges: Sequence[Any], selected_edge_indices: Sequence[int]) -> list[CutTarget]:
+    def _cut_targets_from_edge_indices(
+        self,
+        graph: Any,
+        edges: Sequence[Any],
+        selected_edge_indices: Sequence[int],
+    ) -> list[CutTarget]:
         cx_edges = getattr(graph, "graph", {}).get("cx_edges")
         if cx_edges is not None:
             return cut_targets_from_edges(cx_edges, selected_edge_indices=selected_edge_indices)

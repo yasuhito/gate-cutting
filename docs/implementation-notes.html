@@ -3,41 +3,48 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gate Cutting 実装ノート</title>
+  <title>実装メモ</title>
   <style>
     :root {
       color-scheme: light dark;
-      --bg: #0f172a;
+      --bg: #0b1020;
       --panel: #111827;
-      --panel-2: #1f2937;
+      --panel-2: #182235;
       --text: #e5e7eb;
       --muted: #9ca3af;
+      --line: rgba(255,255,255,.14);
       --blue: #60a5fa;
       --cyan: #22d3ee;
       --green: #34d399;
       --yellow: #fbbf24;
-      --red: #fb7185;
       --purple: #c084fc;
-      --line: rgba(255,255,255,.14);
-      --shadow: 0 24px 60px rgba(0,0,0,.35);
+      --red: #fb7185;
+      --shadow: 0 20px 60px rgba(0,0,0,.28);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      background:
-        radial-gradient(circle at 20% 0%, rgba(96,165,250,.22), transparent 32rem),
-        radial-gradient(circle at 95% 10%, rgba(192,132,252,.18), transparent 28rem),
-        linear-gradient(180deg, #0f172a 0%, #111827 44%, #0b1120 100%);
       color: var(--text);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(96,165,250,.22), transparent 28rem),
+        radial-gradient(circle at 90% 4%, rgba(52,211,153,.16), transparent 24rem),
+        linear-gradient(180deg, #0b1020 0%, #111827 55%, #0b1020 100%);
       line-height: 1.7;
     }
-    a { color: var(--cyan); }
+    header, main, footer { max-width: 1180px; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
+    header { padding-top: 4rem; padding-bottom: 2rem; }
+    main { padding-bottom: 4rem; }
+    footer { padding-bottom: 3rem; color: var(--muted); }
+    h1 { margin: .6rem 0 1rem; font-size: clamp(2.4rem, 7vw, 4.8rem); line-height: .95; letter-spacing: -.07em; }
+    h2 { margin: 2.4rem 0 1rem; font-size: clamp(1.45rem, 3vw, 2.15rem); letter-spacing: -.04em; }
+    h3 { margin: 0 0 .55rem; }
+    p { margin-top: 0; }
     code {
-      background: rgba(255,255,255,.08);
-      border: 1px solid rgba(255,255,255,.12);
+      padding: .1rem .35rem;
       border-radius: .35rem;
-      padding: .08rem .32rem;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.07);
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
       font-size: .92em;
     }
@@ -48,99 +55,95 @@
       border-radius: 1rem;
       border: 1px solid rgba(255,255,255,.12);
       background: rgba(15,23,42,.84);
-      box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
     }
-    pre code { border: 0; background: transparent; padding: 0; }
-    header {
-      padding: 4.5rem 1.5rem 2rem;
-      max-width: 1180px;
-      margin: 0 auto;
-    }
+    pre code { padding: 0; border: 0; background: transparent; }
     .eyebrow {
       display: inline-flex;
-      gap: .5rem;
-      align-items: center;
       padding: .35rem .7rem;
-      border: 1px solid rgba(34,211,238,.45);
       border-radius: 999px;
-      color: var(--cyan);
+      border: 1px solid rgba(34,211,238,.45);
       background: rgba(34,211,238,.08);
+      color: var(--cyan);
       font-size: .85rem;
       letter-spacing: .04em;
       text-transform: uppercase;
     }
-    h1 {
-      margin: 1rem 0 .75rem;
-      font-size: clamp(2.3rem, 7vw, 5.2rem);
-      line-height: .95;
-      letter-spacing: -.07em;
-    }
-    .lead {
-      max-width: 820px;
-      color: var(--muted);
-      font-size: 1.18rem;
-    }
-    main {
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 0 1.5rem 4rem;
-    }
-    section { margin: 2rem 0; }
-    h2 {
-      margin: 0 0 1rem;
-      font-size: clamp(1.5rem, 3.4vw, 2.25rem);
-      letter-spacing: -.04em;
-    }
-    h3 { margin: 0 0 .65rem; }
-    .grid {
-      display: grid;
-      gap: 1rem;
-    }
+    .lead { max-width: 830px; color: var(--muted); font-size: 1.15rem; }
+    .grid { display: grid; gap: 1rem; }
     .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .card {
-      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
       border: 1px solid var(--line);
       border-radius: 1.25rem;
-      padding: 1.1rem;
+      padding: 1rem;
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.045));
       box-shadow: var(--shadow);
     }
-    .card p, .card ul { margin-bottom: 0; }
+    .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+    .muted { color: var(--muted); }
     .tag {
       display: inline-flex;
       align-items: center;
-      gap: .4rem;
-      margin: .15rem .2rem .15rem 0;
-      padding: .3rem .55rem;
+      gap: .35rem;
+      margin: .15rem .18rem .15rem 0;
+      padding: .35rem .6rem;
       border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.13);
       background: rgba(255,255,255,.06);
-      color: #d1d5db;
+      color: #dbeafe;
       font-size: .86rem;
     }
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(9rem, 1fr));
+      gap: .75rem;
+      overflow-x: auto;
+      padding: .25rem .1rem;
+    }
+    .step {
+      position: relative;
+      min-width: 9rem;
+      padding: .9rem;
+      border-radius: 1rem;
+      border: 1px solid rgba(96,165,250,.24);
+      background: rgba(96,165,250,.08);
+    }
+    .step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      top: 50%;
+      right: -.62rem;
+      transform: translateY(-50%);
+      color: var(--cyan);
+      font-weight: 800;
+      z-index: 2;
+    }
+    .step b { display: block; color: #fff; }
+    .step span { display: block; margin-top: .3rem; color: var(--muted); font-size: .88rem; }
     .module-map {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: .8rem;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
     }
     .module {
-      min-height: 10rem;
-      border-radius: 1.15rem;
-      padding: .9rem;
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
       position: relative;
       overflow: hidden;
+      min-height: 11rem;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 1.1rem;
+      padding: 1rem;
+      background: rgba(255,255,255,.055);
     }
     .module::after {
       content: "";
       position: absolute;
-      inset: auto -20% -35% auto;
+      right: -2rem;
+      bottom: -2rem;
       width: 7rem;
       height: 7rem;
       border-radius: 50%;
       background: currentColor;
-      opacity: .12;
+      opacity: .13;
     }
     .module strong { display: block; margin-bottom: .45rem; }
     .module ul { margin: 0; padding-left: 1.1rem; color: var(--muted); font-size: .92rem; }
@@ -150,148 +153,115 @@
     .yellow { color: var(--yellow); }
     .purple { color: var(--purple); }
     .red { color: var(--red); }
-    .pipeline {
-      display: grid;
-      grid-template-columns: repeat(7, minmax(8rem, 1fr));
-      gap: .75rem;
-      overflow-x: auto;
-      padding-bottom: .25rem;
-    }
-    .step {
-      position: relative;
-      min-width: 8rem;
-      padding: .9rem;
-      border-radius: 1rem;
-      border: 1px solid rgba(96,165,250,.24);
-      background: rgba(96,165,250,.08);
-    }
-    .step:not(:last-child)::after {
-      content: "→";
-      position: absolute;
-      right: -.62rem;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--cyan);
-      font-weight: 800;
-      z-index: 2;
-    }
-    .step b { display: block; color: white; }
-    .step span { color: var(--muted); font-size: .88rem; }
-    .compare {
+    .io {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
       gap: 1rem;
       align-items: stretch;
     }
-    .arrow {
-      display: grid;
-      place-items: center;
-      color: var(--green);
-      font-size: 2rem;
-      font-weight: 800;
-    }
-    .mini-flow {
-      display: flex;
-      flex-wrap: wrap;
-      gap: .5rem;
-      align-items: center;
-    }
-    .pill {
-      padding: .55rem .75rem;
-      border-radius: .85rem;
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      color: #dbeafe;
-    }
-    .plus, .equals { color: var(--muted); font-weight: 800; }
-    .formula {
-      display: inline-flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: .45rem;
-      padding: 1rem;
-      border-radius: 1rem;
-      border: 1px solid rgba(52,211,153,.35);
-      background: rgba(52,211,153,.08);
-      font-size: 1.12rem;
-    }
-    .warning {
-      border-color: rgba(251,191,36,.32);
-      background: rgba(251,191,36,.08);
-    }
-    .ok {
-      border-color: rgba(52,211,153,.32);
-      background: rgba(52,211,153,.08);
-    }
-    footer {
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 0 1.5rem 4rem;
-      color: var(--muted);
-    }
+    .arrow { display: grid; place-items: center; color: var(--green); font-size: 2rem; font-weight: 900; }
+    table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 1rem; background: rgba(255,255,255,.045); }
+    th, td { padding: .75rem; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
+    th { color: #fff; background: rgba(255,255,255,.06); }
+    tr:last-child td { border-bottom: 0; }
     @media (max-width: 920px) {
-      .grid-2, .grid-3, .module-map, .compare { grid-template-columns: 1fr; }
+      .grid-2, .grid-3, .module-map, .io { grid-template-columns: 1fr; }
+      .pipeline { grid-template-columns: repeat(6, 10rem); }
       .arrow { transform: rotate(90deg); }
-      .pipeline { grid-template-columns: repeat(7, 10rem); }
     }
   </style>
 </head>
 <body>
   <header>
-    <div class="eyebrow">Gate Cutting Refactor Notes</div>
-    <h1>実装メモを<br />見える化する</h1>
+    <div class="eyebrow">src/gate_cutting</div>
+    <h1>実装メモ</h1>
     <p class="lead">
-      研究用スクリプトに散らばっていた Stim 変換、デバイスデータ、Gate Cutting、MIP、回路生成を
-      <code>gate_cutting/</code> の再利用可能な部品として整理した記録です。
+      <code>src/gate_cutting/</code> が提供する処理の流れ、主要モジュール、入出力データ、実行時の前提を開発者向けにまとめます。
     </p>
   </header>
 
   <main>
     <section>
-      <h2>全体像</h2>
-      <div class="grid grid-3">
+      <h2>処理の全体像</h2>
+      <div class="pipeline card">
+        <div class="step"><b>1. 回路入力</b><span>Qiskit 回路または互換オブジェクト</span></div>
+        <div class="step"><b>2. デバイス読込</b><span>フィデリティ・読み出し誤差・座標</span></div>
+        <div class="step"><b>3. CX 候補化</b><span>CircuitEdge と命令番号</span></div>
+        <div class="step"><b>4. MIP 選択</b><span>SciPy MILP で CutTarget を選択</span></div>
+        <div class="step"><b>5. Stim 実行</b><span>標準実行またはノイズ付き実行</span></div>
+        <div class="step"><b>6. Gate Cutting</b><span>サブ回路期待値の重み付き合成</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>入出力</h2>
+      <div class="io">
         <article class="card">
-          <h3>実験コード</h3>
-          <p><code>experiments/exp1/</code> は Gate/Wire Cutting の基礎比較、<code>experiments/exp2/</code> はデバイス Fidelity と MIP を使う評価です。</p>
+          <h3>入力</h3>
+          <p>
+            <span class="tag">Qiskit 回路</span>
+            <span class="tag">device.json</span>
+            <span class="tag">shots</span>
+            <span class="tag">max_cuts</span>
+            <span class="tag">cut_fidelity_threshold</span>
+          </p>
         </article>
+        <div class="arrow">→</div>
         <article class="card">
-          <h3>共通モジュール</h3>
-          <p>重複していたローカル実装を <code>gate_cutting/</code> へ集約し、テスト可能な API にしました。</p>
-        </article>
-        <article class="card">
-          <h3>参考コード</h3>
-          <p><code>legacy/ex2/</code> は試作・比較用。原稿実験の再現は <code>experiments/exp1/</code> と <code>experiments/exp2/</code> を優先します。</p>
+          <h3>出力</h3>
+          <p>
+            <span class="tag">標準実行の期待値</span>
+            <span class="tag">Gate Cutting 後の期待値</span>
+            <span class="tag">CutTarget 一覧</span>
+            <span class="tag">フィデリティ付き切断情報</span>
+          </p>
         </article>
       </div>
     </section>
 
     <section>
-      <h2>モジュール地図</h2>
+      <h2>モジュール一覧</h2>
       <div class="module-map">
         <div class="module blue">
           <strong>circuits.py</strong>
           <ul>
             <li><code>random_clifford_circuit()</code></li>
-            <li><code>CircuitGenerator</code></li>
+            <li>Qiskit の遅延取り込みとテスト用代替オブジェクト対応</li>
+          </ul>
+        </div>
+        <div class="module green">
+          <strong>device.py</strong>
+          <ul>
+            <li><code>load_device()</code></li>
+            <li><code>parse_device()</code></li>
+            <li><code>DeviceData</code> と <code>ErrorParams</code></li>
           </ul>
         </div>
         <div class="module cyan">
           <strong>stim_backend.py</strong>
           <ul>
             <li><code>qiskit_to_stim()</code></li>
-            <li><code>append_operation_with_noise()</code></li>
-            <li><code>run_standard()</code></li>
+            <li><code>add_noise()</code> / <code>run_standard()</code></li>
+            <li>読み出し誤差と自動測定</li>
           </ul>
         </div>
-        <div class="module green">
-          <strong>device.py</strong>
+        <div class="module yellow">
+          <strong>cut_selection.py</strong>
           <ul>
-            <li><code>DeviceData</code></li>
-            <li><code>parse_device()</code></li>
-            <li><code>load_device()</code></li>
+            <li><code>collect_cx_edges()</code></li>
+            <li><code>cut_targets_from_edges()</code></li>
+            <li>Qiskit 命令番号と Stim 命令番号の対応付け</li>
           </ul>
         </div>
         <div class="module purple">
+          <strong>mip.py</strong>
+          <ul>
+            <li><code>build_cut_graph()</code></li>
+            <li><code>MIPCutFinder.solve_cut_graph()</code></li>
+            <li>SciPy <code>milp</code> による切断対象選択</li>
+          </ul>
+        </div>
+        <div class="module red">
           <strong>gate_cutting.py</strong>
           <ul>
             <li><code>CutTarget</code></li>
@@ -299,159 +269,114 @@
             <li><code>run_gate_cut()</code></li>
           </ul>
         </div>
-        <div class="module yellow">
-          <strong>mip.py / cut_selection.py</strong>
-          <ul>
-            <li><code>CircuitEdge</code></li>
-            <li><code>MIPCutFinder</code></li>
-            <li>SciPy MILP 必須</li>
-          </ul>
-        </div>
       </div>
     </section>
 
     <section>
-      <h2>実行パイプライン</h2>
-      <div class="pipeline card">
-        <div class="step"><b>1. 回路生成</b><span>Qiskit / Clifford</span></div>
-        <div class="step"><b>2. 配置</b><span>Tranqu / Qiskit</span></div>
-        <div class="step"><b>3. CX抽出</b><span>CircuitEdge</span></div>
-        <div class="step"><b>4. MIP選択</b><span>低 Fidelity 優先</span></div>
-        <div class="step"><b>5. CutTarget</b><span>index + fidelity</span></div>
-        <div class="step"><b>6. Stim化</b><span>TICK 区切り</span></div>
-        <div class="step"><b>7. 評価</b><span>標準 vs Cutting</span></div>
-      </div>
+      <h2>主要データ構造</h2>
+      <table>
+        <thead>
+          <tr><th>型</th><th>責務</th><th>主なフィールド</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>ErrorParams</code></td>
+            <td>Stim に挿入するエラー確率を保持する。</td>
+            <td><code>one_qubit</code>, <code>two_qubit</code>, <code>readout</code></td>
+          </tr>
+          <tr>
+            <td><code>DeviceData</code></td>
+            <td>デバイス JSON から抽出したフィデリティ、座標、エラー情報をまとめる。</td>
+            <td><code>cx_fidelities</code>, <code>one_q_fidelities</code>, <code>qubit_coords</code>, <code>error_params</code></td>
+          </tr>
+          <tr>
+            <td><code>CircuitEdge</code></td>
+            <td>MIP の辺変数に対応する CX 候補を表す。</td>
+            <td><code>edge_index</code>, <code>instruction_index</code>, <code>qubits</code>, <code>fidelity</code></td>
+          </tr>
+          <tr>
+            <td><code>CutTarget</code></td>
+            <td>切断する具体的な Stim の CX 命令を表す。</td>
+            <td><code>instruction_index</code>, <code>qubits</code>, <code>fidelity</code></td>
+          </tr>
+        </tbody>
+      </table>
     </section>
 
     <section>
-      <h2>Stim 変換のポイント</h2>
-      <div class="compare">
-        <article class="card warning">
-          <h3>旧: Identity で区切る</h3>
-          <pre><code>stim_circ.append("CX", qs)
-stim_circ.append("I", qs)</code></pre>
-          <p>命令の結合を避けたい意図はあるが、回路へ identity gate を混ぜてしまう。</p>
-        </article>
-        <div class="arrow">→</div>
-        <article class="card ok">
-          <h3>新: TICK で区切る</h3>
-          <pre><code>stim_circ.append("CX", qs)
-stim_circ.append("TICK")</code></pre>
-          <p><code>TICK</code> は annotation として区切り意図が明確で、ノイズ挿入位置も追跡しやすい。</p>
-        </article>
-      </div>
-      <div class="card" style="margin-top: 1rem;">
-        <div class="mini-flow">
-          <span class="pill"><code>x</code> → <code>X</code></span>
-          <span class="pill"><code>y</code> → <code>Y</code></span>
-          <span class="pill"><code>z</code> → <code>Z</code></span>
-          <span class="pill"><code>h</code> → <code>H</code></span>
-          <span class="pill"><code>s</code> → <code>S</code></span>
-          <span class="pill"><code>sdg</code> → <code>S_DAG</code></span>
-          <span class="pill"><code>cx/cnot</code> → <code>CX + TICK</code></span>
-          <span class="pill"><code>measure</code> → <code>M</code></span>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <h2>デバイスデータからノイズ付き Stim 回路へ</h2>
+      <h2>Stim 変換とノイズ挿入</h2>
       <div class="grid grid-2">
         <article class="card">
-          <h3><code>device.json</code> から読むもの</h3>
+          <h3>変換規則</h3>
           <p>
-            <span class="tag">量子ビット ID</span>
-            <span class="tag">座標</span>
-            <span class="tag">1Q Fidelity</span>
-            <span class="tag">readout error</span>
-            <span class="tag">CX Fidelity</span>
+            <span class="tag"><code>x</code> → <code>X</code></span>
+            <span class="tag"><code>y</code> → <code>Y</code></span>
+            <span class="tag"><code>z</code> → <code>Z</code></span>
+            <span class="tag"><code>h</code> → <code>H</code></span>
+            <span class="tag"><code>s</code> → <code>S</code></span>
+            <span class="tag"><code>sdg</code> → <code>S_DAG</code></span>
+            <span class="tag"><code>cx</code> → <code>CX + TICK</code></span>
+            <span class="tag"><code>measure</code> → <code>M</code></span>
+            <span class="tag"><code>barrier</code> → <code>TICK</code></span>
           </p>
         </article>
         <article class="card">
-          <h3>挿入する代表的ノイズ</h3>
+          <h3>ノイズ</h3>
           <p>
-            <span class="tag">1Q 後: <code>DEPOLARIZE1</code></span>
+            <span class="tag">1 量子ビットゲート後: <code>DEPOLARIZE1</code></span>
             <span class="tag">CX 後: <code>DEPOLARIZE2</code></span>
             <span class="tag">測定前: <code>X_ERROR</code></span>
+            <span class="tag"><code>TICK</code> にはノイズを付けない</span>
           </p>
         </article>
       </div>
     </section>
 
     <section>
-      <h2>Gate Cutting 展開</h2>
-      <article class="card">
-        <p class="formula">
-          <span><code>CX</code> を切る</span>
-          <span class="equals">=</span>
-          <span>0.5 × (</span>
-          <span class="pill">II</span>
-          <span class="plus">+</span>
-          <span class="pill">ZI</span>
-          <span class="plus">+</span>
-          <span class="pill">IX</span>
-          <span class="plus">−</span>
-          <span class="pill">ZX</span>
-          <span>)</span>
-        </p>
-        <p>
-          <code>CutTarget</code> は <code>instruction_index</code>, <code>qubits</code>, optional <code>fidelity</code> を持ちます。同じ <code>(control, target)</code> の CX が複数あっても、MIP が選んだ具体的な CX だけを切れます。
-        </p>
-      </article>
-    </section>
-
-    <section>
-      <h2>MIP による切断対象選択</h2>
-      <div class="grid grid-2">
-        <article class="card">
-          <h3>グラフ化</h3>
-          <p>回路中の CX を <code>CircuitEdge</code> として集め、デバイス Fidelity と Stim 上の instruction index を保持します。</p>
-        </article>
-        <article class="card ok">
-          <h3>MILP 解</h3>
-          <p>SciPy の <code>milp</code> で切断対象 edge を選び、選ばれた edge の Fidelity を <code>CutTarget.fidelity</code> に残します。</p>
-        </article>
+      <h2>MIP と CutTarget の対応</h2>
+      <div class="pipeline card">
+        <div class="step"><b>Qiskit 命令列</b><span>CX を走査</span></div>
+        <div class="step"><b>CircuitEdge</b><span>辺番号とフィデリティ</span></div>
+        <div class="step"><b>MIP 変数</b><span>辺ごとの切断判定</span></div>
+        <div class="step"><b>選択された辺</b><span>選ばれた辺番号</span></div>
+        <div class="step"><b>CutTarget</b><span>Stim 命令番号</span></div>
+        <div class="step"><b>run_gate_cut</b><span>該当 CX だけ置換</span></div>
       </div>
+      <p class="muted">
+        同じ <code>(control, target)</code> の CX が複数ある場合も、<code>instruction_index</code> により切断対象を一意に指定します。
+      </p>
     </section>
 
     <section>
-      <h2>移行済みポイント</h2>
-      <div class="grid grid-2">
-        <article class="card">
-          <h3>実験スクリプト</h3>
-          <ul>
-            <li><code>experiments/exp1/b1.py</code>: Stim / Gate Cutting / 回路生成を共通実装へ委譲。</li>
-            <li><code>experiments/exp2/b1.py</code>, <code>b2.py</code>, <code>check.py</code>: device / MIP / Stim / Gate Cutting / CircuitGenerator を共通化。</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h3>ベンチマーク import</h3>
-          <p><code>benchmark_phase1.py</code> / <code>benchmark_phase2.py</code> は <code>PROJECT_ROOT</code> を <code>sys.path</code> に追加し、<code>from experiments.exp2.b2 import ...</code> する形に整理。</p>
-        </article>
-      </div>
-    </section>
-
-    <section>
-      <h2>注意点 / TODO</h2>
+      <h2>実行時の扱い</h2>
       <div class="grid grid-3">
-        <article class="card warning">
-          <h3>研究コード前提</h3>
-          <p>長時間ベンチマークや外部依存を含むため、通常の TDD では軽量 unit test / smoke test を優先します。</p>
+        <article class="card">
+          <h3>未対応ゲート</h3>
+          <p><code>qiskit_to_stim(..., strict=True)</code> では <code>NotImplementedError</code> を送出します。<code>strict=False</code> では警告を出してスキップします。</p>
         </article>
-        <article class="card warning">
-          <h3>legacy の扱い</h3>
-          <p><code>legacy/ex2/</code> は実験過程の保存場所。最終的な再現では <code>experiments/</code> を優先します。</p>
+        <article class="card">
+          <h3>測定</h3>
+          <p>測定が無い Stim 回路は、実行前に使用中の量子ビットへ測定を追加します。ノイズ付き実行では読み出し誤差も追加します。</p>
         </article>
-        <article class="card ok">
-          <h3>区切り方</h3>
-          <p>CX 後の区切りは <code>I</code> ではなく <code>TICK</code> を使う方針に統一済みです。</p>
+        <article class="card">
+          <h3>MIP ソルバー</h3>
+          <p>SciPy の <code>milp</code> を使います。ソルバーが失敗した場合は例外として扱います。</p>
         </article>
       </div>
+    </section>
+
+    <section>
+      <h2>開発時の確認コマンド</h2>
+      <pre><code>python -m unittest discover -v
+python -m pytest -q
+ruff check src tests
+mypy src
+python -m py_compile src/gate_cutting/*.py tests/*.py</code></pre>
     </section>
   </main>
 
   <footer>
-    <p>このページは Markdown ではなく HTML として管理します。計画・説明ドキュメントは必要に応じてビジュアルな HTML に更新してください。</p>
+    <p>この文書は現在のコンポーネントの処理内容を説明するための開発者向けメモです。</p>
   </footer>
 </body>
 </html>

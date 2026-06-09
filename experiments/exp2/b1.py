@@ -7,8 +7,10 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+SRC_ROOT = PROJECT_ROOT / "src"
+for import_root in (PROJECT_ROOT, SRC_ROOT):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
 
 import numpy as np
 
@@ -17,7 +19,7 @@ from qiskit import QuantumCircuit
 
 # Stim Imports
 import stim
-from gate_cutting.circuits import CircuitGenerator
+from gate_cutting.circuits import random_clifford_circuit
 from gate_cutting.device import parse_device
 from gate_cutting.gate_cutting import CutTarget, find_cx_cut_targets, run_gate_cut
 from gate_cutting.mip import MIPCutFinder
@@ -79,9 +81,9 @@ class DeviceManager:
         return parsed.error_params
 
 # ==========================================
-# 2. Circuit Generator
+# 2. Circuit generation
 # ==========================================
-# Shared CircuitGenerator is imported from gate_cutting.circuits.
+# Uses gate_cutting.circuits.random_clifford_circuit.
 
 # ==========================================
 # 3. MIP Solver
@@ -161,9 +163,9 @@ class ExperimentRunner:
         exec_counter = 0
         while exec_counter < self.config.trials:
             # 1. Circuit Generation (Qiskit)
-            qc = CircuitGenerator.random_clifford(
-                self.config.n_qubits, 
-                self.config.depth
+            qc = random_clifford_circuit(
+                self.config.n_qubits,
+                self.config.depth,
             )
 
             # 2. Transpilation (Tranqu -> Qiskit)

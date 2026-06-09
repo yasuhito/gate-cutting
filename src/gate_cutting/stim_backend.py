@@ -9,8 +9,9 @@ experiments can share one tested implementation.
 from __future__ import annotations
 
 import warnings
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -104,7 +105,11 @@ def qiskit_to_stim(qc: Any, *, insert_ticks: bool = True, strict: bool = True) -
         elif strict:
             raise NotImplementedError(f"Unsupported Qiskit gate for Stim conversion: {op}")
         else:
-            warnings.warn(f"Skipping unsupported Qiskit gate during Stim conversion: {op}", RuntimeWarning)
+            warnings.warn(
+                f"Skipping unsupported Qiskit gate during Stim conversion: {op}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     return stim_circuit
 

@@ -266,13 +266,13 @@
 <tr><th>領域</th><th>状態</th><th>メモ</th></tr>
 </thead>
 <tbody>
-<tr><td>Stim backend 共通化</td><td>完了</td><td><code>qiskit_to_stim()</code>, noise insertion, measurement, expectation を <code>gate_cutting/stim_backend.py</code> に集約。</td></tr>
-<tr><td>Device parsing</td><td>完了</td><td><code>device.json</code> から Fidelity / error / readout / 座標を抽出。</td></tr>
-<tr><td>CX 後の区切り</td><td>完了</td><td><code>I</code> ではなく <code>TICK</code> を使う。実 Stim smoke test で noiseless expectation が変わらないことを確認。</td></tr>
-<tr><td>Gate Cutting target</td><td>完了</td><td><code>CutTarget(instruction_index, qubits, fidelity)</code> で、同一 qubit pair の複数 CX も区別する。</td></tr>
-<tr><td>MIP cut selection</td><td>完了</td><td>SciPy <code>milp</code> で切断対象を選択し、solver 失敗時はエラーにする。</td></tr>
-<tr><td>テスト</td><td>完了</td><td>unit test に加えて、<code>strict=False</code> warning、TICK smoke、noiseless Gate Cutting sanity を追加。</td></tr>
-<tr><td>後回し</td><td>Backlog</td><td>Wire Cutting 全面整理、Tranqu 連携整理、QASM ベンチマーク、パッケージ公開整備。</td></tr>
+<tr><td>Stim バックエンド共通化</td><td>完了</td><td><code>qiskit_to_stim()</code>、ノイズ挿入、測定、期待値計算を <code>src/gate_cutting/stim_backend.py</code> に集約。</td></tr>
+<tr><td>デバイス解析</td><td>完了</td><td><code>device.json</code> からフィデリティ、エラー、読み出し誤差、座標を抽出。</td></tr>
+<tr><td>CX 後の区切り</td><td>完了</td><td><code>I</code> ではなく <code>TICK</code> を使う。実 Stim 簡易テストで、ノイズなし期待値が変わらないことを確認。</td></tr>
+<tr><td>Gate Cutting 対象</td><td>完了</td><td><code>CutTarget(instruction_index, qubits, fidelity)</code> で、同一量子ビットペアの複数 CX も区別する。</td></tr>
+<tr><td>MIP 切断対象選択</td><td>完了</td><td>SciPy <code>milp</code> で切断対象を選択し、ソルバー失敗時はエラーにする。</td></tr>
+<tr><td>テスト</td><td>完了</td><td>単体テストに加えて、<code>strict=False</code> の警告確認、TICK の簡易確認、ノイズなし Gate Cutting の健全性確認を追加。</td></tr>
+<tr><td>後回し</td><td>未着手</td><td>Wire Cutting 全面整理、Tranqu 連携整理、QASM ベンチマーク、パッケージ公開整備。</td></tr>
 </tbody>
 </table>
 <h2 id="結論-まず作るもの">結論: まず作るもの</h2>
@@ -281,7 +281,7 @@
 <p>推奨構成:</p>
 <pre class="text"><code>src/gate_cutting/
 ├── __init__.py
-├── device.py          # device.json -&gt; ErrorParams / fidelity / 座標
+├── device.py          # device.json -&gt; ErrorParams / フィデリティ / 座標
 ├── stim_backend.py    # Qiskit -&gt; Stim, ノイズ挿入, 実行, 期待値計算
 └── gate_cutting.py    # Gate Cutting の分解・切断実行
 
@@ -292,10 +292,7 @@ tests/
 ├── test_mip.py
 ├── test_stim_integration.py
 └── test_test_style.py</code></pre>
-<p>研究コードをすぐ使える形にするだけなら、最初は <code>src/</code>
-なしで <code>gate_cutting/</code>
-直下に置いてもよいです。ただし将来パッケージ化するなら
-<code>src/gate_cutting/</code> が無難です。</p>
+<p>現在はパッケージ化を見据えて <code>src/gate_cutting/</code> 配下に配置しています。</p>
 <h2 id="1-共通化する対象">1. 共通化する対象</h2>
 <p>現状、以下に同じような処理が重複しています。</p>
 <ul>
@@ -383,15 +380,14 @@ class="sourceCode python"><code class="sourceCode python"><span id="cb4-1"><a hr
 <span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    (<span class="op">-</span><span class="fl">0.5</span>, <span class="st">&quot;Z&quot;</span>, <span class="st">&quot;X&quot;</span>),</span>
 <span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>]</span>
 <span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> find_cx_cut_targets(circuit: stim.Circuit, cut_pairs: <span class="bu">list</span>[<span class="bu">tuple</span>[<span class="bu">int</span>, <span class="bu">int</span>]]) <span class="op">-&gt;</span> <span class="bu">list</span>[CutTarget]: ...</span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> run_gate_cut(circuit: stim.Circuit, cuts: <span class="bu">list</span>[CutTarget], error_params: ErrorParams, shots: <span class="bu">int</span>) <span class="op">-&gt;</span> <span class="bu">float</span>: ...</span></code></pre></div>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> find_cx_cut_targets(circuit: stim.Circuit, <span class="op">*</span>, cut_pairs: Iterable[<span class="bu">tuple</span>[<span class="bu">int</span>, <span class="bu">int</span>]] <span class="op">|</span> <span class="va">None</span> <span class="op">=</span> <span class="va">None</span>, instruction_indices: Iterable[<span class="bu">int</span>] <span class="op">|</span> <span class="va">None</span> <span class="op">=</span> <span class="va">None</span>) <span class="op">-&gt;</span> <span class="bu">list</span>[CutTarget]: ...</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> run_gate_cut(circuit: stim.Circuit, cuts: Sequence[CutTarget], error_params: ErrorParams, <span class="op">*</span>, shots: <span class="bu">int</span> <span class="op">=</span> <span class="dv">10000</span>) <span class="op">-&gt;</span> <span class="bu">float</span>: ...</span></code></pre></div>
 <p>ポイント:</p>
 <ul>
 <li>今の <code>run_cut()</code> は <code>(u, v)</code>
 のペアで切断対象を探すため、同じペアの CX
 が複数あると全部切ってしまう可能性があります。</li>
-<li><strong>ペアだけでなく instruction index / gate id
-で切る</strong> 形へ移行済みです。MIP で選ばれた edge の Fidelity は <code>CutTarget.fidelity</code> に残します。</li>
+<li><strong>ペアだけでなく命令番号で切る</strong> 形へ移行済みです。MIP で選ばれた辺のフィデリティは <code>CutTarget.fidelity</code> に残します。</li>
 </ul>
 <h2 id="3-重要な修正ポイント">3. 重要な修正ポイント</h2>
 <h3 id="31-cx-後の-i-を-tick-等に置き換える">3.1 CX 後の <code>I</code>
@@ -425,10 +421,9 @@ class="sourceCode python"><code class="sourceCode python"><span id="cb6-1"><a hr
 に変換するのもあり。</li>
 </ul>
 <h3 id="32-自動測定時にも-readout-error-を入れる">3.2 自動測定時にも
-readout error を入れる</h3>
+読み出し誤差を入れる</h3>
 <p>現状の一部コードでは、測定がない場合に最後へ <code>M</code>
-を追加していますが、その自動追加測定に readout error
-が入らない実装があります。</p>
+を追加していますが、その自動追加測定に読み出し誤差が入らない実装があります。</p>
 <p>やること:</p>
 <ul>
 <li><code>ensure_measurements(circuit, error_params)</code>
@@ -444,7 +439,7 @@ readout error を入れる</h3>
 <ul>
 <li><code>lookup_two_qubit_error(error_params, u, v)</code>
 のような関数を作る。</li>
-<li>デバイスが方向付き Fidelity を持つなら方向を尊重する。</li>
+<li>デバイスが方向付きフィデリティを持つなら方向を尊重する。</li>
 <li>方向なしとして扱いたい場合だけ逆向きも参照する。</li>
 </ul>
 <h3 id="34-unsupported-gate-は黙って無視しない">3.4 unsupported gate
@@ -454,7 +449,7 @@ readout error を入れる</h3>
 <p>やること:</p>
 <ul>
 <li>未対応ゲートは基本 <code>NotImplementedError</code> を出す。</li>
-<li><code>strict=False</code> のときだけ warning して skip する。</li>
+<li><code>strict=False</code> のときだけ警告を出してスキップする。</li>
 </ul>
 <p>例:</p>
 <div class="sourceCode" id="cb7"><pre
@@ -500,12 +495,12 @@ class="sourceCode python"><code class="sourceCode python"><span id="cb8-1"><a hr
 <ul>
 <li><code>X 0</code> 後に <code>DEPOLARIZE1(p)</code> が入る。</li>
 <li><code>CX 0 1</code> 後に <code>DEPOLARIZE2(p)</code> が入る。</li>
-<li>測定時に readout 用 <code>X_ERROR(p)</code> が入る。</li>
+<li>測定時に読み出し誤差用の <code>X_ERROR(p)</code> が入る。</li>
 </ul></li>
 <li><p><strong>自動測定</strong></p>
 <ul>
 <li>測定なし回路を <code>run_standard(..., error_params=...)</code>
-したとき、最後の測定にも readout error が入る。</li>
+したとき、最後の測定にも読み出し誤差が入る。</li>
 </ul></li>
 <li><p><strong>Gate Cutting の sanity check</strong></p>
 <ul>
@@ -545,12 +540,12 @@ id="step-3-experimentsexp2benchmark_phase1py--benchmark_phase2py-を確認">Step
 最初のPR/コミットでやるとよい最小範囲</h2>
 <p>最初から全部やると大きいので、最初はこれだけでよいです。</p>
 <ol type="1">
-<li><code>gate_cutting/stim_backend.py</code> を作る。</li>
+<li><code>src/gate_cutting/stim_backend.py</code> を作る。</li>
 <li><code>ErrorParams</code>, <code>qiskit_to_stim</code>,
 <code>append_operation_with_noise</code>, <code>add_noise</code>,
 <code>run_standard</code> を移す。</li>
 <li>CX 後の <code>I</code> を <code>TICK</code> にする。</li>
-<li>自動測定時の readout error を直す。</li>
+<li>自動測定時の読み出し誤差を直す。</li>
 <li><code>experiments/exp2/b2.py</code> だけ新モジュールを使う。</li>
 <li>小さいテストを3〜5個追加する。</li>
 </ol>
