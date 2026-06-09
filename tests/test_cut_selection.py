@@ -17,6 +17,13 @@ class FakeQiskitCircuit:
         return types.SimpleNamespace(index=qubit)
 
 
+def one_missing_fidelity_edge():
+    from gate_cutting.cut_selection import collect_cx_edges
+
+    circuit = FakeQiskitCircuit([FakeInstruction("cx", [1, 0])])
+    return collect_cx_edges(circuit, {})[0]
+
+
 class CutSelectionTest(unittest.TestCase):
     def test_collect_cx_edges_preserves_instruction_indices_for_repeated_pairs(self):
         from gate_cutting.cut_selection import CircuitEdge, collect_cx_edges
@@ -50,15 +57,11 @@ class CutSelectionTest(unittest.TestCase):
 
         self.assertEqual(cuts, [CutTarget(instruction_index=3, qubits=(0, 1))])
 
-    def test_collect_cx_edges_uses_default_fidelity_for_missing_device_edge(self):
-        from gate_cutting.cut_selection import collect_cx_edges
+    def test_collect_cx_edges_defaults_missing_fidelity_to_one(self):
+        self.assertEqual(one_missing_fidelity_edge().fidelity, 1.0)
 
-        circuit = FakeQiskitCircuit([FakeInstruction("cx", [1, 0])])
-
-        edges = collect_cx_edges(circuit, {})
-
-        self.assertEqual(edges[0].fidelity, 1.0)
-        self.assertEqual(edges[0].qubits, (1, 0))
+    def test_collect_cx_edges_preserves_qubits_when_fidelity_is_missing(self):
+        self.assertEqual(one_missing_fidelity_edge().qubits, (1, 0))
 
 
 if __name__ == "__main__":

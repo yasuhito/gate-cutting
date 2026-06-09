@@ -1,5 +1,4 @@
 import logging
-import random
 import sys
 from pathlib import Path
 from typing import List
@@ -13,9 +12,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import stim
-from qiskit import QuantumCircuit
-from qiskit.circuit.library import HGate, SGate, XGate, YGate, ZGate, CXGate
 
+from gate_cutting.circuits import random_clifford_circuit
 from gate_cutting.gate_cutting import CutTarget, run_gate_cut
 from gate_cutting.stim_backend import (
     ErrorParams,
@@ -71,20 +69,8 @@ class GateCutStimSimulator:
         return run_gate_cut(stim_circuit, cut_targets, error_params, shots=shots)
 
 # ==========================================
-# 4. 回路生成とメインループ
+# 4. メインループ
 # ==========================================
-
-def random_clifford_circuit(num_qubits: int, depth: int) -> QuantumCircuit:
-    """簡易版ランダムClifford回路"""
-    qc = QuantumCircuit(num_qubits)
-    for _ in range(depth):
-        for i in range(num_qubits):
-            if random.random() < 0.5:
-                qc.h(i)
-        for i in range(0, num_qubits - 1, 2):
-            if random.random() < 0.5:
-                qc.cx(i, i+1)
-    return qc
 
 def run_noise_sweep_benchmark():
     # 設定
@@ -122,7 +108,12 @@ def run_noise_sweep_benchmark():
         
         for _ in range(TRIALS):
             # 1. 回路生成
-            qc = random_clifford_circuit(N_QUBITS, DEPTH)
+            qc = random_clifford_circuit(
+                N_QUBITS,
+                DEPTH,
+                single_qubit_probability=0.5,
+                cx_probability=0.5,
+            )
             stim_circ = qiskit_to_stim(qc)
             
             # 2. 正解値計算 (ノイズなし)

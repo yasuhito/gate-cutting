@@ -60,13 +60,23 @@ class GateCuttingTest(unittest.TestCase):
         self.backend._stim = FakeStimModule()
         self.gc = importlib.import_module("gate_cutting.gate_cutting")
 
-    def test_find_cx_cut_targets_can_select_by_instruction_index(self):
+    def repeated_pair_circuit(self):
         circuit = FakeStimCircuit()
         circuit.append("CX", [0, 1])
         circuit.append("TICK")
         circuit.append("CX", [0, 1])
+        return circuit
 
-        cuts = self.gc.find_cx_cut_targets(circuit, instruction_indices=[2])
+    def one_cut_terms(self):
+        error_params = self.backend.ErrorParams(one_qubit={0: 0.01, 1: 0.02}, two_qubit={(0, 1): 0.2}, readout={})
+        return list(self.gc.iter_gate_cut_terms(
+            self.repeated_pair_circuit(),
+            [self.gc.CutTarget(instruction_index=0, qubits=(0, 1))],
+            error_params,
+        ))
+
+    def test_find_cx_cut_targets_can_select_by_instruction_index(self):
+        cuts = self.gc.find_cx_cut_targets(self.repeated_pair_circuit(), instruction_indices=[2])
 
         self.assertEqual(cuts, [self.gc.CutTarget(instruction_index=2, qubits=(0, 1))])
 
@@ -80,25 +90,18 @@ class GateCuttingTest(unittest.TestCase):
 
         self.assertEqual(cuts, [self.gc.CutTarget(instruction_index=2, qubits=(1, 0))])
 
-    def test_iter_gate_cut_terms_replaces_only_selected_cx(self):
-        circuit = FakeStimCircuit()
-        circuit.append("CX", [0, 1])
-        circuit.append("TICK")
-        circuit.append("CX", [0, 1])
-        error_params = self.backend.ErrorParams(one_qubit={0: 0.01, 1: 0.02}, two_qubit={(0, 1): 0.2}, readout={})
+    def test_iter_gate_cut_terms_uses_expected_coefficients(self):
+        self.assertEqual([coeff for coeff, _ in self.one_cut_terms()], [0.5, 0.5, 0.5, -0.5])
 
-        terms = list(self.gc.iter_gate_cut_terms(
-            circuit,
-            [self.gc.CutTarget(instruction_index=0, qubits=(0, 1))],
-            error_params,
-        ))
-
-        self.assertEqual([coeff for coeff, _ in terms], [0.5, 0.5, 0.5, -0.5])
-        first_term_ops = terms[0][1].operations
-        self.assertEqual(first_term_ops, [("TICK", [], None), ("CX", [0, 1], None), ("DEPOLARIZE2", [0, 1], 0.2)])
-        last_term_ops = terms[-1][1].operations
+    def test_iter_gate_cut_terms_preserves_uncut_cx_in_first_term(self):
         self.assertEqual(
-            last_term_ops,
+            self.one_cut_terms()[0][1].operations,
+            [("TICK", [], None), ("CX", [0, 1], None), ("DEPOLARIZE2", [0, 1], 0.2)],
+        )
+
+    def test_iter_gate_cut_terms_replaces_selected_cx_in_last_term(self):
+        self.assertEqual(
+            self.one_cut_terms()[-1][1].operations,
             [
                 ("Z", [0], None),
                 ("DEPOLARIZE1", [0], 0.01),

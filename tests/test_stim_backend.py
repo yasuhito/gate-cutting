@@ -52,22 +52,25 @@ class FakeQiskitCircuit:
         return types.SimpleNamespace(index=qubit)
 
 
+def backend_module():
+    backend = importlib.import_module("gate_cutting.stim_backend")
+    backend._stim = FakeStimModule()
+    return backend
+
+
+def converted_cx_circuit_operations():
+    qc = FakeQiskitCircuit([
+        FakeInstruction("h", [0]),
+        FakeInstruction("cx", [0, 1]),
+        FakeInstruction("measure", [0]),
+    ])
+    return backend_module().qiskit_to_stim(qc).operations
+
+
 class StimBackendTest(unittest.TestCase):
-    def setUp(self):
-        self.backend = importlib.import_module("gate_cutting.stim_backend")
-        self.backend._stim = FakeStimModule()
-
-    def test_qiskit_to_stim_inserts_tick_after_cx_not_identity(self):
-        qc = FakeQiskitCircuit([
-            FakeInstruction("h", [0]),
-            FakeInstruction("cx", [0, 1]),
-            FakeInstruction("measure", [0]),
-        ])
-
-        stim_circuit = self.backend.qiskit_to_stim(qc)
-
+    def test_qiskit_to_stim_inserts_tick_after_cx(self):
         self.assertEqual(
-            stim_circuit.operations,
+            converted_cx_circuit_operations(),
             [
                 ("H", [0], None),
                 ("CX", [0, 1], None),
@@ -75,12 +78,14 @@ class StimBackendTest(unittest.TestCase):
                 ("M", [0], None),
             ],
         )
-        self.assertNotIn("I", [name for name, _, _ in stim_circuit.operations])
+
+    def test_qiskit_to_stim_does_not_insert_identity_after_cx(self):
+        self.assertNotIn("I", [name for name, _, _ in converted_cx_circuit_operations()])
 
     def test_qiskit_barrier_converts_to_tick(self):
         qc = FakeQiskitCircuit([FakeInstruction("barrier", [0, 1])])
 
-        stim_circuit = self.backend.qiskit_to_stim(qc)
+        stim_circuit = backend_module().qiskit_to_stim(qc)
 
         self.assertEqual(stim_circuit.operations, [("TICK", [], None)])
 
@@ -88,38 +93,42 @@ class StimBackendTest(unittest.TestCase):
         qc = FakeQiskitCircuit([FakeInstruction("rz", [0])])
 
         with self.assertRaises(NotImplementedError):
-            self.backend.qiskit_to_stim(qc)
+            backend_module().qiskit_to_stim(qc)
 
     def test_append_operation_with_noise_adds_depolarize1_after_one_qubit_gate(self):
-        err = self.backend.ErrorParams(one_qubit={0: 0.01}, two_qubit={}, readout={})
+        backend = backend_module()
+        err = backend.ErrorParams(one_qubit={0: 0.01}, two_qubit={}, readout={})
         circuit = FakeStimCircuit()
 
-        self.backend.append_operation_with_noise(circuit, "H", [0], err)
+        backend.append_operation_with_noise(circuit, "H", [0], err)
 
         self.assertEqual(circuit.operations, [("H", [0], None), ("DEPOLARIZE1", [0], 0.01)])
 
     def test_append_operation_with_noise_adds_depolarize2_after_cx_with_reverse_lookup(self):
-        err = self.backend.ErrorParams(one_qubit={}, two_qubit={(1, 0): 0.2}, readout={})
+        backend = backend_module()
+        err = backend.ErrorParams(one_qubit={}, two_qubit={(1, 0): 0.2}, readout={})
         circuit = FakeStimCircuit()
 
-        self.backend.append_operation_with_noise(circuit, "CX", [0, 1], err)
+        backend.append_operation_with_noise(circuit, "CX", [0, 1], err)
 
         self.assertEqual(circuit.operations, [("CX", [0, 1], None), ("DEPOLARIZE2", [0, 1], 0.2)])
 
     def test_append_operation_with_noise_adds_readout_error_before_measurement(self):
-        err = self.backend.ErrorParams(one_qubit={}, two_qubit={}, readout={0: 0.03})
+        backend = backend_module()
+        err = backend.ErrorParams(one_qubit={}, two_qubit={}, readout={0: 0.03})
         circuit = FakeStimCircuit()
 
-        self.backend.append_operation_with_noise(circuit, "M", [0], err)
+        backend.append_operation_with_noise(circuit, "M", [0], err)
 
         self.assertEqual(circuit.operations, [("X_ERROR", [0], 0.03), ("M", [0], None)])
 
     def test_ensure_measurements_adds_readout_error_for_auto_measurement(self):
-        err = self.backend.ErrorParams(one_qubit={}, two_qubit={}, readout={0: 0.04})
+        backend = backend_module()
+        err = backend.ErrorParams(one_qubit={}, two_qubit={}, readout={0: 0.04})
         circuit = FakeStimCircuit()
         circuit.append("H", [0])
 
-        self.backend.ensure_measurements(circuit, err)
+        backend.ensure_measurements(circuit, err)
 
         self.assertEqual(circuit.operations, [("H", [0], None), ("X_ERROR", [0], 0.04), ("M", [0], None)])
 

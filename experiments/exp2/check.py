@@ -18,10 +18,10 @@ import numpy as np
 
 # Qiskit Imports
 from qiskit import QuantumCircuit
-from qiskit.circuit.library import HGate, SGate, XGate, YGate, ZGate, CXGate
 
 # Stim Imports
 import stim
+from gate_cutting.circuits import CircuitGenerator
 from gate_cutting.device import parse_device
 from gate_cutting.gate_cutting import CutTarget, find_cx_cut_targets, run_gate_cut
 from gate_cutting.mip import MIPCutFinder
@@ -135,31 +135,9 @@ class DeviceManager:
 
 
 # ==========================================
-# 2. Circuit Generator (from b2.py)
+# 2. Circuit Generator
 # ==========================================
-
-class CircuitGenerator:
-    SINGLE_QUBIT_CLIFFORDS = [
-        ("h", HGate()), ("s", SGate()), ("sdg", SGate().inverse()),
-        ("x", XGate()), ("y", YGate()), ("z", ZGate())
-    ]
-
-    @staticmethod
-    def random_clifford(num_qubits: int, depth: int, seed: int | None = None) -> QuantumCircuit:
-        rng = random.Random(seed)
-        qc = QuantumCircuit(num_qubits)
-        qubits = list(range(num_qubits))
-
-        for _ in range(depth):
-            for q in qubits:
-                if rng.random() < 0.6:
-                    _, gate = rng.choice(CircuitGenerator.SINGLE_QUBIT_CLIFFORDS)
-                    qc.append(gate, [q])
-            rng.shuffle(qubits)
-            for i in range(0, len(qubits)-1, 2):
-                if rng.random() < 2.0:
-                    qc.append(CXGate(), [qubits[i], qubits[i+1]])
-        return qc
+# Shared CircuitGenerator is imported from gate_cutting.circuits.
 
 # ==========================================
 # 3. MIP Solver
