@@ -19,6 +19,10 @@
 
 共通化した実装:
 
+- `gate_cutting/cut_selection.py`
+  - `CircuitEdge`
+  - `collect_cx_edges()`
+  - `cut_targets_from_edges()`
 - `gate_cutting/device.py`
   - `DeviceData`
   - `parse_device()`
@@ -130,14 +134,17 @@ stim_circ.append("TICK")
 
 `experiments/exp2/` の `MIPCutFinder` は、回路中の CX をグラフのエッジとして扱い、Fidelity が低いエッジを優先して切断対象にします。
 
+`gate_cutting/cut_selection.py` では、Qiskit風回路の CX 命令を `CircuitEdge` として集め、MIPで選ばれた edge index を `CutTarget` に変換します。`CutTarget.instruction_index` は、`qiskit_to_stim()` で `TICK` を挿入した後の Stim 回路上の CX index です。これにより、同じ `(control, target)` の CX が複数ある場合でも、MIPが選んだ具体的なゲートだけを切断できます。
+
 大まかな流れ:
 
 1. Qiskit 回路を作る。
 2. 必要なら Tranqu / Qiskit で対象デバイスへトランスパイルする。
-3. 回路中の CX とデバイス Fidelity からグラフを作る。
-4. MIP で切断対象の CX を選ぶ。
-5. Stim 回路へ変換する。
-6. 通常ノイズあり実行と Gate Cutting あり実行を比較する。
+3. 回路中の CX とデバイス Fidelity からグラフを作る。このとき元のCX候補を `CircuitEdge` として保持する。
+4. MIP で切断対象の CX edge index を選ぶ。
+5. 選ばれた edge index を `CutTarget` に変換する。
+6. Stim 回路へ変換する。
+7. 通常ノイズあり実行と Gate Cutting あり実行を比較する。
 
 ## 注意点 / TODO
 

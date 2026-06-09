@@ -25,6 +25,21 @@ class ExperimentRefactorTest(unittest.TestCase):
         self.assertIn("gate_cutting.gate_cutting", imported_modules)
         self.assertIn("gate_cutting.stim_backend", imported_modules)
 
+    def test_exp2_b2_mip_uses_cut_selection_helpers(self):
+        source_path = Path("experiments/exp2/b2.py")
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+
+        imported_modules = {
+            node.module
+            for node in tree.body
+            if isinstance(node, ast.ImportFrom)
+        }
+        self.assertIn("gate_cutting.cut_selection", imported_modules)
+
+        source = source_path.read_text(encoding="utf-8")
+        self.assertIn("collect_cx_edges", source)
+        self.assertIn("cut_targets_from_edges", source)
+
 
 if __name__ == "__main__":
     unittest.main()

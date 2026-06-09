@@ -23,8 +23,9 @@ from qiskit.circuit.library import HGate, SGate, XGate, YGate, ZGate, CXGate
 
 # Stim Imports
 import stim
+from gate_cutting.cut_selection import collect_cx_edges, cut_targets_from_edges
 from gate_cutting.device import parse_device
-from gate_cutting.gate_cutting import find_cx_cut_targets, run_gate_cut
+from gate_cutting.gate_cutting import CutTarget, find_cx_cut_targets, run_gate_cut
 from gate_cutting.stim_backend import (
     ErrorParams,
     append_operation_with_noise as append_stim_operation_with_noise,
@@ -345,18 +346,38 @@ class MIPCutFinder:
             G.add_node(i, pos=pos, fidelity=fid_1q)
             
         # エッジ追加
-        for instruction in circuit.data:
-            if instruction.operation.name != "cx":
-                continue
-            c_idx = circuit.find_bit(instruction.qubits[0]).index
-            t_idx = circuit.find_bit(instruction.qubits[1]).index
-            fid_cx = self.dm.cx_fidelities.get((c_idx, t_idx), 1.0)
-            
-            # Fidelityを属性として保持
-            G.add_edge(c_idx, t_idx, gate="cx", fidelity=fid_cx)
+        cx_edges = collect_cx_edges(circuit, self.dm.cx_fidelities)
+        G.graph["cx_edges"] = cx_edges
+        for edge in cx_edges:
+            u, v = edge.qubits
+            # Fidelityと元の命令位置を属性として保持
+            G.add_edge(
+                u,
+                v,
+                gate="cx",
+                fidelity=edge.fidelity,
+                instruction_index=edge.instruction_index,
+                source_instruction_index=edge.source_instruction_index,
+                edge_index=edge.edge_index,
+            )
         return G
 
-    def solve(self, G: nx.MultiDiGraph, max_cuts: int = 3, cut_fidelity_threshold: float = 0.96) -> List[Tuple[int, int]]:
+    def _cut_targets_from_edge_indices(self, G: nx.MultiDiGraph, edges, selected_edge_indices) -> List[CutTarget]:
+        cx_edges = G.graph.get("cx_edges")
+        if cx_edges is not None:
+            return cut_targets_from_edges(cx_edges, selected_edge_indices=selected_edge_indices)
+
+        # Fallback for graphs not built by build_graph().
+        cut_targets = []
+        for edge_index in selected_edge_indices:
+            u, v, _, attr = edges[edge_index]
+            cut_targets.append(CutTarget(
+                instruction_index=attr.get("instruction_index", edge_index),
+                qubits=(u, v),
+            ))
+        return cut_targets
+
+    def solve(self, G: nx.MultiDiGraph, max_cuts: int = 3, cut_fidelity_threshold: float = 0.96) -> List[CutTarget]:
         nodes = list(G.nodes(data=True))
         edges = list(G.edges(keys=True, data=True))
         n_nodes = len(nodes)
@@ -470,28 +491,22 @@ class MIPCutFinder:
             
             # Fidelityが低い順にソートして、max_cuts個だけ返す
             fallback_candidates.sort(key=lambda x: x[3].get('fidelity', 1.0))
-            return [(u, v) for u, v, _, _ in fallback_candidates[:max_cuts]]
+            fallback_edge_indices = [edge[3].get('edge_index', edges.index(edge)) for edge in fallback_candidates[:max_cuts]]
+            return self._cut_targets_from_edge_indices(G, edges, fallback_edge_indices)
 
-        selected_cuts = []
+        selected_edge_indices = []
         for k in range(n_edges):
             # z_k が 1 (に近い値) ならカット
             if res.x[n_nodes + k] > 0.5:
-                u, v, _, _ = edges[k]
-                selected_cuts.append((u, v))
+                selected_edge_indices.append(edges[k][3].get('edge_index', k))
                 
         # 念のための安全策: 万が一数値誤差等でmax_cutsを超えていたら、fidelityの低い順に絞る
-        if len(selected_cuts) > max_cuts:
-             logger.warning(f"Solver result {len(selected_cuts)} > max_cuts. Trimming result.")
-             # エッジ情報を取り出し直してソートする必要があるため、少し手間だが厳密に行う
-             cut_details = []
-             for u, v in selected_cuts:
-                 # 元のグラフから属性を取得
-                 fid = G[u][v][0].get('fidelity', 1.0)
-                 cut_details.append(((u, v), fid))
-             cut_details.sort(key=lambda x: x[1]) # 低い順
-             selected_cuts = [item[0] for item in cut_details[:max_cuts]]
+        if len(selected_edge_indices) > max_cuts:
+             logger.warning(f"Solver result {len(selected_edge_indices)} > max_cuts. Trimming result.")
+             selected_edge_indices.sort(key=lambda edge_index: edges[edge_index][3].get('fidelity', 1.0))
+             selected_edge_indices = selected_edge_indices[:max_cuts]
 
-        return selected_cuts
+        return self._cut_targets_from_edge_indices(G, edges, selected_edge_indices)
     
 # ==========================================
 # 4. Stim Simulator (New: Replaces GateCutSimulator)
@@ -532,10 +547,13 @@ class StimGateCutSimulator:
         return run_stim_standard(circuit, shots=shots, error_params=error_params)
 
     @classmethod
-    def run_cut(cls, original_stim: stim.Circuit, cut_pairs: List[Tuple[int, int]], 
+    def run_cut(cls, original_stim: stim.Circuit, cut_pairs: List[Tuple[int, int]] | List[CutTarget], 
                 error_params: ErrorParams, shots=10000) -> float:
         """Gate Cuttingシミュレーション (Stim版)"""
-        cut_targets = find_cx_cut_targets(original_stim, cut_pairs=cut_pairs)
+        if cut_pairs and isinstance(cut_pairs[0], CutTarget):
+            cut_targets = list(cut_pairs)
+        else:
+            cut_targets = find_cx_cut_targets(original_stim, cut_pairs=cut_pairs)
         return run_gate_cut(original_stim, cut_targets, error_params, shots=shots)
 
 # ==========================================
