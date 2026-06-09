@@ -48,8 +48,8 @@
   - 旧実装では `qiskit_to_stim()` / `append_operation_with_noise()` をローカル定義していた。
   - 現在は `gate_cutting.stim_backend` と `gate_cutting.gate_cutting` を利用する形へ移行済み。
 - `experiments/exp2/b1.py`, `experiments/exp2/b2.py`
-  - `StimGateCutSimulator.qiskit_to_stim()`
-  - `StimGateCutSimulator._append_op_with_noise()`
+  - 旧実装では `StimGateCutSimulator.qiskit_to_stim()` / `_append_op_with_noise()` / `run_cut()` などをローカル実装していた。
+  - 現在は `gate_cutting.device`, `gate_cutting.cut_selection`, `gate_cutting.stim_backend`, `gate_cutting.gate_cutting` を利用する形へ移行済み。
 
 ### `qiskit_to_stim()`
 
