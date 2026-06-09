@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Stim リファクタリング作業計画</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      max-width: 980px;
+      margin: 2rem auto;
+      padding: 0 1.25rem 4rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+      line-height: 1.75;
+    }
+    h1, h2, h3 { line-height: 1.35; }
+    h1 { border-bottom: 3px solid #4f46e5; padding-bottom: .4rem; }
+    h2 { margin-top: 2.2rem; border-bottom: 1px solid #ddd; padding-bottom: .2rem; }
+    code { padding: .1rem .25rem; border-radius: 4px; background: rgba(127,127,127,.14); }
+    pre { padding: 1rem; overflow-x: auto; border-radius: 8px; background: rgba(127,127,127,.14); }
+    pre code { padding: 0; background: transparent; }
+    blockquote { border-left: 4px solid #aaa; padding-left: 1rem; color: #666; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: .35rem .55rem; }
+  </style>
+</head>
+<body>
+<h1 id="stim-リファクタリング作業計画">Stim
+リファクタリング作業計画</h1>
+<p>このメモは「Stim
+の箇所をリファクタリングして使えるようにする」ための具体的な作業分解です。</p>
+<h2 id="結論-まず作るもの">結論: まず作るもの</h2>
+<p>まずは重複している Stim
+関連処理を、実験スクリプトから切り出して共通モジュールにします。</p>
+<p>推奨構成:</p>
+<pre class="text"><code>src/gate_cutting/
+├── __init__.py
+├── device.py          # device.json -&gt; ErrorParams / fidelity / 座標
+├── stim_backend.py    # Qiskit -&gt; Stim, ノイズ挿入, 実行, 期待値計算
+└── gate_cutting.py    # Gate Cutting の分解・切断実行
+
+tests/
+├── test_device.py
+├── test_stim_backend.py
+└── test_gate_cutting.py</code></pre>
+<p>研究コードをすぐ使える形にするだけなら、最初は <code>src/</code>
+なしで <code>gate_cutting/</code>
+直下に置いてもよいです。ただし将来パッケージ化するなら
+<code>src/gate_cutting/</code> が無難です。</p>
+<h2 id="1-共通化する対象">1. 共通化する対象</h2>
+<p>現状、以下に同じような処理が重複しています。</p>
+<ul>
+<li><code>legacy/ex2/ev1.py</code>
+<ul>
+<li><code>load_device_data()</code></li>
+<li><code>qiskit_to_stim()</code></li>
+<li><code>append_operation_with_noise()</code></li>
+<li><code>simulate_ideal()</code> / <code>simulate_noisy()</code> /
+<code>simulate_cut_circuit()</code></li>
+</ul></li>
+<li><code>experiments/exp1/b1.py</code>
+<ul>
+<li><code>ErrorParams</code></li>
+<li><code>qiskit_to_stim()</code></li>
+<li><code>append_operation_with_noise()</code></li>
+<li><code>GateCutStimSimulator</code></li>
+</ul></li>
+<li><code>experiments/exp2/b1.py</code>,
+<code>experiments/exp2/b2.py</code>
+<ul>
+<li><code>DeviceManager</code></li>
+<li><code>ErrorParams</code></li>
+<li><code>StimGateCutSimulator</code></li>
+</ul></li>
+</ul>
+<p>最初のリファクタリングでは <code>experiments/exp2/b2.py</code>
+をベースにしつつ、<code>legacy/ex2/ev1.py</code> の
+<code>load_device_data()</code> と wire-cut
+関連の知見を拾うのがよいです。</p>
+<h2 id="2-最低限ほしい公開api">2. 最低限ほしい公開API</h2>
+<h3 id="devicepy"><code>device.py</code></h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="at">@dataclass</span>(frozen<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ErrorParams:</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    one_qubit: <span class="bu">dict</span>[<span class="bu">int</span>, <span class="bu">float</span>]</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    two_qubit: <span class="bu">dict</span>[<span class="bu">tuple</span>[<span class="bu">int</span>, <span class="bu">int</span>], <span class="bu">float</span>]</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    readout: <span class="bu">dict</span>[<span class="bu">int</span>, <span class="bu">float</span>]</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="at">@dataclass</span>(frozen<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> DeviceData:</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    raw: <span class="bu">dict</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    cx_fidelities: <span class="bu">dict</span>[<span class="bu">tuple</span>[<span class="bu">int</span>, <span class="bu">int</span>], <span class="bu">float</span>]</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    one_q_fidelities: <span class="bu">dict</span>[<span class="bu">int</span>, <span class="bu">float</span>]</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    qubit_coords: <span class="bu">dict</span>[<span class="bu">int</span>, <span class="bu">tuple</span>[<span class="bu">float</span>, <span class="bu">float</span>]]</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    error_params: ErrorParams</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> load_device(path: <span class="bu">str</span> <span class="op">|</span> Path) <span class="op">-&gt;</span> DeviceData: ...</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> parse_device(data: <span class="bu">dict</span>) <span class="op">-&gt;</span> DeviceData: ...</span></code></pre></div>
+<p>ポイント:</p>
+<ul>
+<li><code>device.json</code> から <code>ErrorParams</code>
+を取る処理を1箇所に集約する。</li>
+<li><code>reverse_fidelity</code> がある場合は逆方向も入れる。</li>
+<li>2Q error は <code>1 - fidelity</code> として持つ。</li>
+</ul>
+<h3 id="stim_backendpy"><code>stim_backend.py</code></h3>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> qiskit_to_stim(qc: QuantumCircuit, <span class="op">*</span>, insert_ticks: <span class="bu">bool</span> <span class="op">=</span> <span class="va">True</span>) <span class="op">-&gt;</span> stim.Circuit: ...</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> active_qubits(circuit: stim.Circuit) <span class="op">-&gt;</span> <span class="bu">list</span>[<span class="bu">int</span>]: ...</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> append_operation_with_noise(circuit: stim.Circuit, op_name: <span class="bu">str</span>, targets: <span class="bu">list</span>[<span class="bu">int</span>], error_params: ErrorParams) <span class="op">-&gt;</span> <span class="va">None</span>: ...</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> add_noise(circuit: stim.Circuit, error_params: ErrorParams) <span class="op">-&gt;</span> stim.Circuit: ...</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> ensure_measurements(circuit: stim.Circuit, error_params: ErrorParams <span class="op">|</span> <span class="va">None</span> <span class="op">=</span> <span class="va">None</span>) <span class="op">-&gt;</span> stim.Circuit: ...</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> parity_expectation(samples: np.ndarray) <span class="op">-&gt;</span> <span class="bu">float</span>: ...</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> sample_expectation(circuit: stim.Circuit, shots: <span class="bu">int</span>) <span class="op">-&gt;</span> <span class="bu">float</span>: ...</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> run_standard(circuit: stim.Circuit, shots: <span class="bu">int</span>, error_params: ErrorParams <span class="op">|</span> <span class="va">None</span> <span class="op">=</span> <span class="va">None</span>) <span class="op">-&gt;</span> <span class="bu">float</span>: ...</span></code></pre></div>
+<p>ポイント:</p>
+<ul>
+<li>Qiskit 変換、ノイズ挿入、測定追加、期待値計算を分離する。</li>
+<li>実験コードから直接 Stim
+の細かい処理を触らなくて済むようにする。</li>
+</ul>
+<h3 id="gate_cuttingpy"><code>gate_cutting.py</code></h3>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="at">@dataclass</span>(frozen<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> CutTarget:</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    instruction_index: <span class="bu">int</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    qubits: <span class="bu">tuple</span>[<span class="bu">int</span>, <span class="bu">int</span>]</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>CX_DECOMPOSITION <span class="op">=</span> [</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    (<span class="fl">0.5</span>, <span class="st">&quot;I&quot;</span>, <span class="st">&quot;I&quot;</span>),</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    (<span class="fl">0.5</span>, <span class="st">&quot;Z&quot;</span>, <span class="st">&quot;I&quot;</span>),</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    (<span class="fl">0.5</span>, <span class="st">&quot;I&quot;</span>, <span class="st">&quot;X&quot;</span>),</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    (<span class="op">-</span><span class="fl">0.5</span>, <span class="st">&quot;Z&quot;</span>, <span class="st">&quot;X&quot;</span>),</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> find_cx_cut_targets(circuit: stim.Circuit, cut_pairs: <span class="bu">list</span>[<span class="bu">tuple</span>[<span class="bu">int</span>, <span class="bu">int</span>]]) <span class="op">-&gt;</span> <span class="bu">list</span>[CutTarget]: ...</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> run_gate_cut(circuit: stim.Circuit, cuts: <span class="bu">list</span>[CutTarget], error_params: ErrorParams, shots: <span class="bu">int</span>) <span class="op">-&gt;</span> <span class="bu">float</span>: ...</span></code></pre></div>
+<p>ポイント:</p>
+<ul>
+<li>今の <code>run_cut()</code> は <code>(u, v)</code>
+のペアで切断対象を探すため、同じペアの CX
+が複数あると全部切ってしまう可能性があります。</li>
+<li>可能なら <strong>ペアだけでなく instruction index / gate id
+で切る</strong> 形に直すべきです。</li>
+</ul>
+<h2 id="3-重要な修正ポイント">3. 重要な修正ポイント</h2>
+<h3 id="31-cx-後の-i-を-tick-等に置き換える">3.1 CX 後の <code>I</code>
+を <code>TICK</code> 等に置き換える</h3>
+<p>現状:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>stim_circ.append(<span class="st">&quot;CX&quot;</span>, qs)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>stim_circ.append(<span class="st">&quot;I&quot;</span>, qs)</span></code></pre></div>
+<p>これは「Stim が同じ命令をまとめると、後で CX
+ごとにノイズを入れにくい」ことへの暫定対応です。</p>
+<p>やること:</p>
+<ul>
+<li><code>I</code> ではなく <code>TICK</code>
+を入れる案をまず試す。</li>
+<li><code>TICK</code> は Stim の annotation
+なので、「ここで区切る」という意図が <code>I</code> より明確。</li>
+<li><code>append_operation_with_noise()</code> では <code>TICK</code>
+はノイズを付けずにそのまま通す。</li>
+</ul>
+<p>候補:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="cf">elif</span> op <span class="kw">in</span> (<span class="st">&quot;cx&quot;</span>, <span class="st">&quot;cnot&quot;</span>):</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    stim_circ.append(<span class="st">&quot;CX&quot;</span>, qs)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> insert_ticks:</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>        stim_circ.append(<span class="st">&quot;TICK&quot;</span>)</span></code></pre></div>
+<p>注意:</p>
+<ul>
+<li><code>TICK</code>
+を入れた場合に、既存ベンチマークの結果が大きく変わらないことを確認する。</li>
+<li>Qiskit の <code>barrier</code> を Stim の <code>TICK</code>
+に変換するのもあり。</li>
+</ul>
+<h3 id="32-自動測定時にも-readout-error-を入れる">3.2 自動測定時にも
+readout error を入れる</h3>
+<p>現状の一部コードでは、測定がない場合に最後へ <code>M</code>
+を追加していますが、その自動追加測定に readout error
+が入らない実装があります。</p>
+<p>やること:</p>
+<ul>
+<li><code>ensure_measurements(circuit, error_params)</code>
+に集約する。</li>
+<li><code>error_params</code> がある場合は、測定前に
+<code>X_ERROR(p)</code> を追加してから <code>M</code> する。</li>
+</ul>
+<h3 id="33-2q-error-の向きの扱いを統一する">3.3 2Q error
+の向きの扱いを統一する</h3>
+<p>現状、コードによって <code>(u, v)</code> だけを見るものと、なければ
+<code>(v, u)</code> も見るものがあります。</p>
+<p>やること:</p>
+<ul>
+<li><code>lookup_two_qubit_error(error_params, u, v)</code>
+のような関数を作る。</li>
+<li>デバイスが方向付き Fidelity を持つなら方向を尊重する。</li>
+<li>方向なしとして扱いたい場合だけ fallback で逆向きを見る。</li>
+</ul>
+<h3 id="34-unsupported-gate-は黙って無視しない">3.4 unsupported gate
+は黙って無視しない</h3>
+<p>現状の <code>qiskit_to_stim()</code>
+は、対応していないゲートを暗黙に無視する可能性があります。</p>
+<p>やること:</p>
+<ul>
+<li>未対応ゲートは基本 <code>NotImplementedError</code> を出す。</li>
+<li><code>strict=False</code> のときだけ warning して skip する。</li>
+</ul>
+<p>例:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">raise</span> <span class="pp">NotImplementedError</span>(<span class="ss">f&quot;Unsupported Qiskit gate for Stim conversion: </span><span class="sc">{</span>op<span class="sc">}</span><span class="ss">&quot;</span>)</span></code></pre></div>
+<h3 id="35-切断対象は-u-v-だけでなく-gate-index-で持つ">3.5 切断対象は
+<code>(u, v)</code> だけでなく gate index で持つ</h3>
+<p>現状:</p>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>cut_pairs <span class="op">=</span> [(<span class="dv">15</span>, <span class="dv">14</span>)]</span></code></pre></div>
+<p>問題:</p>
+<ul>
+<li>同じ <code>(15, 14)</code> の CX
+が回路中に複数あると、すべて切断される可能性がある。</li>
+<li>MIP は MultiDiGraph を使っているのに、最終的に <code>(u, v)</code>
+へ潰している箇所がある。</li>
+</ul>
+<p>やること:</p>
+<ul>
+<li>MIP 側の出力を
+<code>CutTarget(instruction_index, qubits, fidelity)</code>
+のようにする。</li>
+<li>少なくとも Stim 側では <code>cut_indices</code>
+を明示的に渡せるようにする。</li>
+</ul>
+<h2 id="4-テストで最低限確認すること">4. テストで最低限確認すること</h2>
+<p><code>tests/</code> を作り、以下を自動テスト化すると安心です。</p>
+<ol type="1">
+<li><p><strong>device parse</strong></p>
+<ul>
+<li><code>experiments/exp2/device.json</code> を読める。</li>
+<li>qubits 数、couplings 数、worst fidelity が期待通り。</li>
+<li><code>ErrorParams.two_qubit[(15, 14)] == 1 - 0.5234</code>
+のような確認。</li>
+</ul></li>
+<li><p><strong>Qiskit -&gt; Stim 変換</strong></p>
+<ul>
+<li><code>H(0); CX(0,1); measure_all()</code> が <code>H</code>,
+<code>CX</code>, <code>M</code> を含む Stim 回路になる。</li>
+<li>CX 後に <code>TICK</code> が入る。</li>
+</ul></li>
+<li><p><strong>ノイズ挿入</strong></p>
+<ul>
+<li><code>X 0</code> 後に <code>DEPOLARIZE1(p)</code> が入る。</li>
+<li><code>CX 0 1</code> 後に <code>DEPOLARIZE2(p)</code> が入る。</li>
+<li>測定時に readout 用 <code>X_ERROR(p)</code> が入る。</li>
+</ul></li>
+<li><p><strong>自動測定</strong></p>
+<ul>
+<li>測定なし回路を <code>run_standard(..., error_params=...)</code>
+したとき、最後の測定にも readout error が入る。</li>
+</ul></li>
+<li><p><strong>Gate Cutting の sanity check</strong></p>
+<ul>
+<li>ノイズなし・十分な shots
+で、切断なしと切断ありの期待値が大きくずれない。</li>
+<li>同じ qubit pair の CX が複数ある場合、指定した index
+だけ切れる。</li>
+</ul></li>
+</ol>
+<h2 id="5-作業順序">5. 作業順序</h2>
+<h3 id="step-1-共通モジュールを作る">Step 1: 共通モジュールを作る</h3>
+<ul>
+<li><code>src/gate_cutting/device.py</code></li>
+<li><code>src/gate_cutting/stim_backend.py</code></li>
+<li><code>src/gate_cutting/gate_cutting.py</code></li>
+</ul>
+<p>まずは既存コードのコピペでもよいので、APIを固定する。</p>
+<h3
+id="step-2-experimentsexp2b2py-を共通モジュール利用に置き換える">Step 2:
+<code>experiments/exp2/b2.py</code>
+を共通モジュール利用に置き換える</h3>
+<p><code>b2.py</code>
+が一番まとまっているので、最初の移行対象にする。</p>
+<h3
+id="step-3-experimentsexp2benchmark_phase1py--benchmark_phase2py-を確認">Step
+3: <code>experiments/exp2/benchmark_phase1.py</code> /
+<code>benchmark_phase2.py</code> を確認</h3>
+<p>ベンチマークが従来通り走ることを確認する。</p>
+<h3 id="step-4-experimentsexp1b1py-も置き換える">Step 4:
+<code>experiments/exp1/b1.py</code> も置き換える</h3>
+<p>同じ <code>qiskit_to_stim()</code> / ノイズ挿入を使うようにする。</p>
+<h3 id="step-5-legacy-は触りすぎない">Step 5: legacy は触りすぎない</h3>
+<p><code>legacy/ex2/</code>
+は参考として残す。無理に全部直すより、<code>README</code> と docs
+で「参考コード」と明記する。</p>
+<h2 id="6-最初のprコミットでやるとよい最小範囲">6.
+最初のPR/コミットでやるとよい最小範囲</h2>
+<p>最初から全部やると大きいので、最初はこれだけでよいです。</p>
+<ol type="1">
+<li><code>gate_cutting/stim_backend.py</code> を作る。</li>
+<li><code>ErrorParams</code>, <code>qiskit_to_stim</code>,
+<code>append_operation_with_noise</code>, <code>add_noise</code>,
+<code>run_standard</code> を移す。</li>
+<li>CX 後の <code>I</code> を <code>TICK</code> にする。</li>
+<li>自動測定時の readout error を直す。</li>
+<li><code>experiments/exp2/b2.py</code> だけ新モジュールを使う。</li>
+<li>小さいテストを3〜5個追加する。</li>
+</ol>
+<p>これで「Stim の箇所を再利用可能にした」と言える状態になります。</p>
+<h2 id="7-後回しでよいこと">7. 後回しでよいこと</h2>
+<ul>
+<li>Wire Cutting の全面整理。</li>
+<li>MIP の制約改善。</li>
+<li>Tranqu 連携の整理。</li>
+<li>QASM ベンチマーク対応。</li>
+<li>パッケージ公開用の整備。</li>
+</ul>
+<p>まずは Gate Cutting の Stim backend を安定させるのが優先です。</p>
+</body>
+</html>

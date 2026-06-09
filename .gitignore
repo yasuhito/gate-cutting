@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS/editor metadata
+.DS_Store
+__MACOSX/
+*.swp
+*.swo
+
+# Experiment outputs / generated artifacts
+*.png
+*.csv
+*.jsonl
+*.log

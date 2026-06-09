@@ -1,0 +1,337 @@
+{
+  "name": "A",
+  "device_id": "A",
+  "qubits": [
+    {
+      "id": 0,
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "fidelity": 0.998,
+      "meas_error": {
+        "prob_meas1_prep0": 0.0037,
+        "prob_meas0_prep1": 0.0167,
+        "readout_assignment_error": 0.0173
+      }
+    },
+    {
+      "id": 1,
+      "position": {
+        "x": 1,
+        "y": 0
+      },
+      "fidelity": 0.9992,
+      "meas_error": {
+        "prob_meas1_prep0": 0.0017,
+        "prob_meas0_prep1": 0.0213,
+        "readout_assignment_error": 0.018
+      }
+    },
+    {
+      "id": 2,
+      "position": {
+        "x": 0,
+        "y": 1
+      },
+      "fidelity": 0.9989,
+      "meas_error": {
+        "prob_meas1_prep0": 0.0047,
+        "prob_meas0_prep1": 0.0267,
+        "readout_assignment_error": 0.0101
+      }
+    },
+    {
+      "id": 3,
+      "position": {
+        "x": 1,
+        "y": 1
+      },
+      "fidelity": 0.9988,
+      "meas_error": {
+        "prob_meas1_prep0": 0.003,
+        "prob_meas0_prep1": 0.0264,
+        "readout_assignment_error": 0.0191
+      }
+    },
+    {
+      "id": 4,
+      "position": {
+        "x": 2,
+        "y": 0
+      },
+      "fidelity": 0.9986,
+      "meas_error": {
+        "prob_meas1_prep0": 0.0028,
+        "prob_meas0_prep1": 0.0175,
+        "readout_assignment_error": 0.0141
+      }
+    },
+    {
+      "id": 5,
+      "position": {
+        "x": 3,
+        "y": 0
+      },
+      "fidelity": 0.9985,
+      "meas_error": {
+        "prob_meas1_prep0": 0.0026,
+        "prob_meas0_prep1": 0.0187,
+        "readout_assignment_error": 0.0111
+      }
+    },
+    {
+      "id": 6,
+      "position": {
+        "x": 2,
+        "y": 1
+      },
+      "fidelity": 0.9987,
+      "meas_error": {
+        "prob_meas1_prep0": 0.0016,
+        "prob_meas0_prep1": 0.0157,
+        "readout_assignment_error": 0.0169
+      }
+    },
+    {
+      "id": 7,
+      "position": {
+        "x": 3,
+        "y": 1
+      },
+      "fidelity": 0.9982,
+      "meas_error": {
+        "prob_meas1_prep0": 0.004,
+        "prob_meas0_prep1": 0.0251,
+        "readout_assignment_error": 0.0144
+      }
+    },
+    {
+      "id": 8,
+      "position": {
+        "x": 0,
+        "y": 2
+      },
+      "fidelity": 0.999,
+      "meas_error": {
+        "prob_meas1_prep0": 0.0033,
+        "prob_meas0_prep1": 0.0125,
+        "readout_assignment_error": 0.0168
+      }
+    },
+    {
+      "id": 9,
+      "position": {
+        "x": 1,
+        "y": 2
+      },
+      "fidelity": 0.9986,
+      "meas_error": {
+        "prob_meas1_prep0": 0.0029,
+        "prob_meas0_prep1": 0.0192,
+        "readout_assignment_error": 0.0104
+      }
+    },
+    {
+      "id": 10,
+      "position": {
+        "x": 0,
+        "y": 3
+      },
+      "fidelity": 0.9995,
+      "meas_error": {
+        "prob_meas1_prep0": 0.0011,
+        "prob_meas0_prep1": 0.0247,
+        "readout_assignment_error": 0.0189
+      }
+    },
+    {
+      "id": 11,
+      "position": {
+        "x": 1,
+        "y": 3
+      },
+      "fidelity": 0.9995,
+      "meas_error": {
+        "prob_meas1_prep0": 0.0048,
+        "prob_meas0_prep1": 0.0135,
+        "readout_assignment_error": 0.0133
+      }
+    },
+    {
+      "id": 12,
+      "position": {
+        "x": 2,
+        "y": 2
+      },
+      "fidelity": 0.9992,
+      "meas_error": {
+        "prob_meas1_prep0": 0.0043,
+        "prob_meas0_prep1": 0.0262,
+        "readout_assignment_error": 0.0142
+      }
+    },
+    {
+      "id": 13,
+      "position": {
+        "x": 3,
+        "y": 2
+      },
+      "fidelity": 0.9989,
+      "meas_error": {
+        "prob_meas1_prep0": 0.2702,
+        "prob_meas0_prep1": 0.2065,
+        "readout_assignment_error": 0.7066
+      }
+    },
+    {
+      "id": 14,
+      "position": {
+        "x": 2,
+        "y": 3
+      },
+      "fidelity": 0.9992,
+      "meas_error": {
+        "prob_meas1_prep0": 0.0015,
+        "prob_meas0_prep1": 0.0179,
+        "readout_assignment_error": 0.0133
+      }
+    },
+    {
+      "id": 15,
+      "position": {
+        "x": 3,
+        "y": 3
+      },
+      "fidelity": 0.9985,
+      "meas_error": {
+        "prob_meas1_prep0": 0.0044,
+        "prob_meas0_prep1": 0.026,
+        "readout_assignment_error": 0.0146
+      }
+    }
+  ],
+  "couplings": [
+    {
+      "control": 0,
+      "target": 1,
+      "fidelity": 0.6506
+    },
+    {
+      "control": 4,
+      "target": 1,
+      "fidelity": 0.9869
+    },
+    {
+      "control": 4,
+      "target": 5,
+      "fidelity": 0.5609
+    },
+    {
+      "control": 3,
+      "target": 2,
+      "fidelity": 0.6436
+    },
+    {
+      "control": 3,
+      "target": 6,
+      "fidelity": 0.9713
+    },
+    {
+      "control": 7,
+      "target": 6,
+      "fidelity": 0.8858
+    },
+    {
+      "control": 8,
+      "target": 9,
+      "fidelity": 0.679
+    },
+    {
+      "control": 12,
+      "target": 9,
+      "fidelity": 0.5971
+    },
+    {
+      "control": 12,
+      "target": 13,
+      "fidelity": 0.8874
+    },
+    {
+      "control": 11,
+      "target": 10,
+      "fidelity": 0.7474
+    },
+    {
+      "control": 11,
+      "target": 14,
+      "fidelity": 0.5445
+    },
+    {
+      "control": 15,
+      "target": 14,
+      "fidelity": 0.9234
+    },
+    {
+      "control": 0,
+      "target": 2,
+      "fidelity": 0.9468
+    },
+    {
+      "control": 8,
+      "target": 2,
+      "fidelity": 0.9724
+    },
+    {
+      "control": 8,
+      "target": 10,
+      "fidelity": 0.9663
+    },
+    {
+      "control": 3,
+      "target": 1,
+      "fidelity": 0.9557
+    },
+    {
+      "control": 3,
+      "target": 9,
+      "fidelity": 0.8717
+    },
+    {
+      "control": 11,
+      "target": 9,
+      "fidelity": 0.9692
+    },
+    {
+      "control": 4,
+      "target": 6,
+      "fidelity": 0.9607
+    },
+    {
+      "control": 12,
+      "target": 6,
+      "fidelity": 0.9709
+    },
+    {
+      "control": 12,
+      "target": 14,
+      "fidelity": 0.9553
+    },
+    {
+      "control": 7,
+      "target": 5,
+      "fidelity": 0.971
+    },
+    {
+      "control": 7,
+      "target": 13,
+      "fidelity": 0.956
+    },
+    {
+      "control": 15,
+      "target": 13,
+      "fidelity": 0.9465
+    }
+  ],
+  "calibrated_at": "2025-12-10T09:00:00+09:00"
+}
