@@ -15,6 +15,8 @@
 
 `legacy/ex2/` は試作・参考コードです。
 
+`experiments/exp2/benchmark_phase1.py` / `benchmark_phase2.py` は、同じディレクトリ前提の `from b2 import ...` ではなく、プロジェクトルートを `sys.path` に追加して `from experiments.exp2.b2 import ...` する形に整理しています。
+
 ## Stim 変換まわり
 
 共通化した実装:

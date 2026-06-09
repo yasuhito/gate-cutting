@@ -1,18 +1,19 @@
+import logging
+import sys
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
-import logging
 
-# b2.py からクラスをインポート
-# b2.py は同じディレクトリにあると仮定
-try:
-    from b2 import DeviceManager, CircuitGenerator, MIPCutFinder, StimGateCutSimulator
-except ImportError:
-    # 万が一インポートできない場合のフォールバック（中身を再定義するかエラーを出す）
-    raise ImportError("b2.py could not be imported. Please ensure b2.py is in the current directory.")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from experiments.exp2.b2 import DeviceManager, CircuitGenerator, MIPCutFinder, StimGateCutSimulator
 
 # ログレベルの調整（不要なログを抑制）
-logging.getLogger('b2').setLevel(logging.ERROR)
+logging.getLogger('experiments.exp2.b2').setLevel(logging.ERROR)
 
 def run_b1_benchmark(device_file="device.json", 
                      n_qubits=10, 

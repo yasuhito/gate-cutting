@@ -86,6 +86,24 @@ class ExperimentRefactorTest(unittest.TestCase):
         self.assertIn("CutTarget", source)
         self.assertIn("cut.qubits", source)
 
+    def test_exp2_benchmarks_import_b2_via_project_package_path(self):
+        for source_path in [
+            Path("experiments/exp2/benchmark_phase1.py"),
+            Path("experiments/exp2/benchmark_phase2.py"),
+        ]:
+            with self.subTest(path=str(source_path)):
+                tree = ast.parse(source_path.read_text(encoding="utf-8"))
+                imported_modules = {
+                    node.module
+                    for node in ast.walk(tree)
+                    if isinstance(node, ast.ImportFrom)
+                }
+                self.assertIn("experiments.exp2.b2", imported_modules)
+                self.assertNotIn("b2", imported_modules)
+
+                source = source_path.read_text(encoding="utf-8")
+                self.assertIn("PROJECT_ROOT", source)
+
 
 if __name__ == "__main__":
     unittest.main()
