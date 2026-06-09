@@ -1,157 +1,10 @@
-# Gate Cutting / qCxT 実験コード
+# OQTOPUS 向けゲートカッティングコンポーネント
 
-量子クラウド環境を想定した **量子回路の Gate Cutting / Wire Cutting** と、デバイスの Fidelity 情報を使った **MIP による切断箇所最適化** の実験コードです。
+このリポジトリは、論文著者が研究用に作成したゲートカッティング / ワイヤーカッティング実験スクリプトを整理し、OQTOPUS の一部として実際に動かせる品質まで高めるためのリファクタリングプロジェクトです。
 
-原稿PDFは `docs/qCxT.pdf`、研究会スライドは `docs/qCxT-hpc203-qs17-slides.pdf` にあります。
+現在は、実験スクリプトに散らばっていた Stim 変換、デバイス情報の読み込み、MIP による切断対象選択、ゲートカッティング実行処理を `gate_cutting/` にコンポーネント化しています。`experiments/` と `legacy/` は、元論文の再現・比較・現状仕様確認のために残しています。
 
-## ディレクトリ構成
-
-```text
-.
-├── README.md
-├── AGENTS.md                            # 作業ルール
-├── requirements.txt                     # 必須Python依存（SciPy含む）
-├── gate_cutting/                        # 共通化した実装コード
-│   ├── __init__.py
-│   ├── circuits.py                      # ランダムClifford回路生成
-│   ├── cut_selection.py                 # Qiskit CX命令→CutTarget変換
-│   ├── device.py                        # device.jsonパース・ErrorParams抽出
-│   ├── gate_cutting.py                  # Gate Cutting 展開・実行
-│   ├── mip.py                           # SciPy MILPによるCutTarget選択
-│   └── stim_backend.py                  # Qiskit→Stim変換・ノイズ挿入
-├── tests/                               # TDD用テスト
-│   ├── test_circuits.py
-│   ├── test_cut_selection.py
-│   ├── test_device.py
-│   ├── test_experiment_refactors.py
-│   ├── test_gate_cutting.py
-│   ├── test_mip.py
-│   ├── test_stim_backend.py
-│   ├── test_stim_integration.py
-│   └── test_test_style.py
-├── docs/
-│   ├── qCxT.pdf                         # 原稿PDF
-│   ├── qCxT-hpc203-qs17-slides.pdf      # 研究会スライド
-│   ├── implementation-notes.html        # ビジュアルな実装メモ・作者コメント整理
-│   └── stim-refactor-plan.html          # Stim リファクタリング作業計画
-├── experiments/
-│   ├── exp1/                     # 原稿の第1段階実験
-│   │   ├── b1.py
-│   │   └── benchmark_phase1.py
-│   └── exp2/                     # 原稿の第2段階実験
-│       ├── b1.py
-│       ├── b2.py
-│       ├── benchmark_phase1.py
-│       ├── benchmark_phase2.py
-│       ├── check.py
-│       └── device.json
-├── legacy/
-│   └── ex2/                      # 試作・参考コードと実験ログ
-│       ├── e4.py
-│       ├── e5.py
-│       ├── ev1.py
-│       ├── device.json
-│       ├── device.good.json
-│       ├── good.txt
-│       ├── bad.txt
-│       └── bad2.txt
-└── archive/
-    └── original/                 # 元zipと重複PDFの保管
-```
-
-## 資料
-
-- `docs/qCxT.pdf` — 原稿PDF（7ページ）
-- `docs/qCxT-hpc203-qs17-slides.pdf` — 第203回HPC・第17回QS合同研究発表会の発表スライド（36ページ）
-- `docs/implementation-notes.html` — ビジュアルな実装メモ・作者コメント整理
-- `docs/stim-refactor-plan.html` — Stim 周辺を再利用可能にするためのリファクタリング計画
-
-## 各実験の位置づけ
-
-### `experiments/exp1/`
-
-原稿の実験コードです。主に **Gate Cutting と Wire Cutting の基礎比較** を行います。
-
-- `benchmark_phase1.py`
-  - Qiskit Aer を使った Gate Cutting / Wire Cutting の比較。
-  - 切断数に対する復元誤差とサンプリングオーバーヘッドを評価します。
-- `b1.py`
-  - Stim を使った Gate Cutting のノイズスイープ実験。
-
-### `experiments/exp2/`
-
-原稿の実験コードです。主に **実機を想定したエラー情報 + MIP + Gate Cutting** の評価です。
-
-- `device.json`
-  - 実機を想定した量子ビット Fidelity、2量子ビットゲート Fidelity、readout error を含むデバイスデータ。
-- `b1.py`
-  - MIPで低FidelityなCXゲートを選び、StimでGate Cuttingの効果を評価する統合版。
-- `b2.py`
-  - `b1.py` の改良版。`max_cuts` を守る処理やランダムデバイス生成機能があります。
-- `benchmark_phase1.py`
-  - 固定 `device.json` を使った、最大切断数ごとのエラー比較。
-- `benchmark_phase2.py`
-  - 試行ごとにランダムデバイスを生成するベンチマーク。
-- `check.py`
-  - デバイスグラフ上で使用ゲート・切断ゲートを可視化する確認用スクリプト。
-
-### `legacy/ex2/`
-
-試作・参考コードです。原稿本体の実験は `experiments/exp1/` と `experiments/exp2/` を参照してください。
-
-ただし `legacy/ex2/ev1.py` には、以下のような再利用価値のある Stim 関連処理があります。
-
-- `load_device_data()`
-  - `device.json` から `cx_fidelities`、1Q Fidelity、量子ビット座標、`ErrorParams` を取り出します。
-- `qiskit_to_stim()`
-  - Qiskit の回路を Stim の回路へ変換します。
-- `append_operation_with_noise()`
-  - `ErrorParams` を渡すと、通常ゲートの直後に `DEPOLARIZE1` / `DEPOLARIZE2` / readout error などのノイズ命令を挿入します。
-
-## 作者コメント整理
-
-- **`exp1` と `exp2` が原稿の実験コード**です。
-- `ex2/ev1.py` などに、`qiskit_to_stim()` や `append_operation_with_noise()` といった Stim 変換・ノイズ挿入処理があります。
-- `qiskit_to_stim()` では、CX の後に `I` を入れている箇所があります。
-  - コメント上は「同じ命令の場合まとめられるので、CXのあとにはIを入れてまとめられないようにする」という意図です。
-  - 作者メモとしては「本来はバリア等を使うべき」という TODO です。
-- `device.json` には、実機を想定したエラー/Fidelity 情報が入っています。
-- `legacy/ex2/ev1.py` の `load_device_data()` でエラーパラメータを取得できます。
-- その `ErrorParams` を `append_operation_with_noise()` に渡すと、通常ゲートの後に対応するノイズゲートが挿入されます。
-
-詳細は `docs/implementation-notes.html` も参照してください。
-
-## 共通モジュール
-
-Stim / device まわりの再利用可能な最小実装を `gate_cutting/` に追加しました。
-
-現在の主なAPI:
-
-- `gate_cutting.circuits.random_clifford_circuit()` — 実験で共通利用するランダムClifford回路を生成。
-- `gate_cutting.circuits.CircuitGenerator` — 既存スクリプト互換の回路生成ラッパー。
-- `gate_cutting.cut_selection.CircuitEdge`
-- `gate_cutting.cut_selection.collect_cx_edges()` — Qiskit風回路からCX候補を集め、Stim変換後の instruction index を保持。
-- `gate_cutting.cut_selection.cut_targets_from_edges()` — MIPで選ばれたedge indexを `CutTarget` に変換。
-- `gate_cutting.mip.CutGraph`
-- `gate_cutting.mip.MIPCutFinder` — NetworkX/SciPy の MILP で `CutTarget` を選択。greedy fallback は使わない。
-- `gate_cutting.mip.build_cut_graph()` — NetworkX なしで構築できる軽量cut graph。解くときは SciPy MILP を使う。
-- `gate_cutting.device.DeviceData`
-- `gate_cutting.device.parse_device()` — device JSON から Fidelity / 座標 / `ErrorParams` を抽出。
-- `gate_cutting.device.load_device()` — device JSON ファイルを読み込んで `DeviceData` を返す。
-- `gate_cutting.stim_backend.ErrorParams`
-- `gate_cutting.stim_backend.qiskit_to_stim()` — Qiskit風回路をStim回路へ変換。CX後の区切りは `I` ではなく `TICK`。
-- `gate_cutting.stim_backend.append_operation_with_noise()` — `ErrorParams` に基づき `DEPOLARIZE1` / `DEPOLARIZE2` / readout `X_ERROR` を挿入。
-- `gate_cutting.stim_backend.run_standard()` — ideal/noisy Stim回路を実行してパリティ期待値を返す。
-- `gate_cutting.gate_cutting.CutTarget` — `instruction_index`, `qubits`, optional `fidelity` で具体的なCX切断対象を表す。
-- `gate_cutting.gate_cutting.find_cx_cut_targets()` — `(control, target)` または instruction index から具体的なCX切断対象を探す。
-- `gate_cutting.gate_cutting.iter_gate_cut_terms()` — Gate Cutting の各項の係数とサブ回路を生成する。
-- `gate_cutting.gate_cutting.run_gate_cut()` — Gate Cutting 展開を実行して重み付き期待値を合成する。
-
-`experiments/exp1/b1.py`, `experiments/exp2/b1.py`, `experiments/exp2/b2.py`, `experiments/exp2/check.py` は、これらの共通モジュールを使う形へ移行しています。特に回路生成は `gate_cutting.circuits`、`MIPCutFinder` は `gate_cutting.mip` に切り出しています。`experiments/exp2/benchmark_phase1.py` / `benchmark_phase2.py` は、プロジェクトルートを `sys.path` に追加して `experiments.exp2.b2` を import する形に整理しています。
-
-## 実行環境
-
-主な依存ライブラリは `requirements.txt` にまとめています。MIP の実行に `scipy` は必須です。
+## クイックスタート
 
 ```bash
 python -m venv .venv
@@ -160,39 +13,99 @@ python -m pip install -U pip
 python -m pip install -r requirements.txt
 ```
 
-一部スクリプトでは `tranqu` を optional に使います。未インストールの場合はトランスパイル処理がスキップされる実装があります。
-
-## テスト
-
-実装は TDD で進めます。`device.json` のパース、Stim変換、Gate Cutting 展開、SciPy MILP によるMIP選択結果の `CutTarget` 化、実験スクリプトの共通モジュール利用、実Stim smoke test、テストケースごとの「アサーション 1 つ原則」を unit test で固定しています。
+検証:
 
 ```bash
 python -m unittest discover -v
 python -m py_compile gate_cutting/*.py tests/*.py experiments/exp2/b2.py
 ```
 
-## 実行例
+MIP 実行には `scipy` が必須です。貪欲法によるフォールバックは使いません。
 
-相対パスや同一ディレクトリ import を使っているため、基本的には各実験ディレクトリに移動して実行してください。
+## 最小利用例
 
-```bash
-cd experiments/exp1
-python benchmark_phase1.py
+```python
+from gate_cutting.circuits import CircuitGenerator
+from gate_cutting.device import load_device
+from gate_cutting.mip import MIPCutFinder
+from gate_cutting.stim_backend import qiskit_to_stim, run_standard
+from gate_cutting.gate_cutting import run_gate_cut
 
-cd ../exp2
-python benchmark_phase1.py
-python benchmark_phase2.py
-python check.py
+# デバイス情報とノイズモデルを読み込む。
+device = load_device("experiments/exp2/device.json")
+
+# Qiskit 回路を生成する。既存実験との互換用ラッパーを使う。
+qc = CircuitGenerator.random_clifford(num_qubits=10, depth=4, seed=1)
+
+# MIP で具体的な CX 切断対象を選ぶ。
+finder = MIPCutFinder(device)
+cut_graph = finder.build_cut_graph(qc)
+cuts = finder.solve_cut_graph(cut_graph, max_cuts=2, cut_fidelity_threshold=0.96)
+
+# Stim へ変換して、通常実行とゲートカッティング実行を比較する。
+stim_circuit = qiskit_to_stim(qc)
+standard_value = run_standard(stim_circuit, shots=1000, error_params=device.error_params)
+cut_value = run_gate_cut(stim_circuit, cuts, device.error_params, shots=1000)
 ```
 
-生成される図の例:
+## API 概要
 
-- `experiments/exp1/benchmark_phase1.png`
-- `experiments/exp2/b1_benchmark_result.png`
-- `experiments/exp2/phase2_benchmark_result.png`
+| モジュール | 役割 |
+| --- | --- |
+| `gate_cutting.circuits` | ランダム Clifford 回路生成と、既存実験互換の `CircuitGenerator`。 |
+| `gate_cutting.device` | `device.json` をフィデリティ、量子ビット座標、`ErrorParams` へ変換する処理。 |
+| `gate_cutting.stim_backend` | Qiskit から Stim への変換、`TICK` 区切り、ノイズ挿入、測定処理、パリティ期待値サンプリング。 |
+| `gate_cutting.cut_selection` | Qiskit の CX 命令を具体的な `CircuitEdge` / `CutTarget` へ対応付ける処理。 |
+| `gate_cutting.mip` | SciPy MILP による切断対象選択。命令番号とフィデリティを保持した `CutTarget` を返す。 |
+| `gate_cutting.gate_cutting` | ゲートカッティングの分解と、重み付きサブ回路実行。 |
 
-## 整理メモ
+主なデータ構造:
 
-- 元の `qCxT.zip` は `archive/original/qCxT.zip` に保管しました。
-- `qCxT (1).pdf` は `qCxT.pdf` と同一内容だったため、重複PDFとして `archive/original/qCxT-duplicate.pdf` に移動しました。
-- zip 内の macOS メタデータ（`.DS_Store`, `__MACOSX/`）は展開対象から除外しました。
+- `ErrorParams(one_qubit, two_qubit, readout)` — デバイスフィデリティから導出した Stim ノイズ確率。
+- `CircuitEdge(edge_index, instruction_index, qubits, fidelity, source_instruction_index)` — MIP 選択対象になる CX 候補。
+- `CutTarget(instruction_index, qubits, fidelity=None)` — 切断対象として選ばれた具体的な CX 命令。
+
+## リポジトリ構成
+
+```text
+gate_cutting/     OQTOPUS 統合に向けた再利用可能コンポーネント
+tests/            TDD テストと現状仕様確認テスト
+experiments/      論文実験を共通コンポーネント利用へ移行したコード
+legacy/           参考用に残す元実装・試作コード
+archive/          元 zip / 重複 PDF などの原本保管
+docs/             背景情報、リファクタリング計画、原論文資料
+```
+
+## ドキュメント
+
+- `docs/project-background.html` — 元スクリプト、実験対応関係、legacy / archive の整理。
+- `docs/implementation-notes.html` — 実装メモとモジュールの流れを視覚的にまとめた資料。
+- `docs/stim-refactor-plan.html` — Stim リファクタリング計画と完了状況。
+- `docs/qCxT.pdf` — 元論文。
+- `docs/qCxT-hpc203-qs17-slides.pdf` — 発表スライド。
+
+## 開発方針
+
+- TDD で進める。振る舞いを変える前にテストを追加または更新する。
+- 1 つのテストケースでは 1 つのアサーションに集中する。
+- 振る舞い、API、リポジトリ構成を変えたら README / docs も更新する。
+- `legacy/` は基本的に読み取り用の参考資料として扱い、実装対象にしない。
+- 変更は意味のある単位でコミットする。
+
+詳細な作業ルールは `AGENTS.md` を参照してください。
+
+## 現在の状態
+
+完了済み:
+
+- 共通 Stim バックエンド、デバイスパーサー、ゲートカッティング補助機能、MIP 切断対象選択機能、回路生成補助機能の追加。
+- 主要な `experiments/exp1` / `experiments/exp2` スクリプトの共通コンポーネント利用への移行。
+- SciPy MILP のみを使う切断対象選択。貪欲法フォールバックは廃止。
+- デバイス解析、Stim 変換、ノイズ挿入、ゲートカッティング展開、MIP 選択、実験スクリプトの共通化、実 Stim 簡易動作をテストで固定。
+
+今後の作業:
+
+- OQTOPUS へ直接統合するためのパッケージ / API 形状の整理。
+- ワイヤーカッティングのコンポーネント化。
+- Tranqu / OQTOPUS アダプターの整理。
+- QASM ベンチマーク対応。
