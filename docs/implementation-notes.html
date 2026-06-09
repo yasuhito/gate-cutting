@@ -317,7 +317,7 @@
         <div class="step"><b>2. 配置</b><span>Tranqu / Qiskit</span></div>
         <div class="step"><b>3. CX抽出</b><span>CircuitEdge</span></div>
         <div class="step"><b>4. MIP選択</b><span>低 Fidelity 優先</span></div>
-        <div class="step"><b>5. CutTarget</b><span>instruction index</span></div>
+        <div class="step"><b>5. CutTarget</b><span>index + fidelity</span></div>
         <div class="step"><b>6. Stim化</b><span>TICK 区切り</span></div>
         <div class="step"><b>7. 評価</b><span>標準 vs Cutting</span></div>
       </div>
@@ -395,7 +395,7 @@ stim_circ.append("TICK")</code></pre>
           <span>)</span>
         </p>
         <p>
-          <code>CutTarget</code> は <code>instruction_index</code> と <code>qubits</code> を持ちます。同じ <code>(control, target)</code> の CX が複数あっても、MIP が選んだ具体的な CX だけを切れます。
+          <code>CutTarget</code> は <code>instruction_index</code>, <code>qubits</code>, optional <code>fidelity</code> を持ちます。同じ <code>(control, target)</code> の CX が複数あっても、MIP が選んだ具体的な CX だけを切れます。
         </p>
       </article>
     </section>
@@ -409,7 +409,7 @@ stim_circ.append("TICK")</code></pre>
         </article>
         <article class="card ok">
           <h3>fallback なし</h3>
-          <p>greedy fallback は廃止しました。SciPy が無い、または MILP solver が失敗した場合は、結果を曖昧にせずエラーとして止めます。</p>
+          <p>greedy fallback は廃止しました。SciPy が無い、または MILP solver が失敗した場合は、結果を曖昧にせずエラーとして止めます。選ばれた edge の Fidelity は <code>CutTarget.fidelity</code> に残します。</p>
         </article>
       </div>
     </section>

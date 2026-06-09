@@ -24,6 +24,7 @@ class CutTarget:
 
     instruction_index: int
     qubits: tuple[int, int]
+    fidelity: float | None = None
 
 
 def _instruction_targets(instruction: Any) -> list[int]:

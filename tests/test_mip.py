@@ -122,8 +122,8 @@ class MIPHelperTest(unittest.TestCase):
         self.assertEqual(
             cuts,
             [
-                CutTarget(instruction_index=0, qubits=(0, 1)),
-                CutTarget(instruction_index=2, qubits=(0, 1)),
+                CutTarget(instruction_index=0, qubits=(0, 1), fidelity=0.5),
+                CutTarget(instruction_index=2, qubits=(0, 1), fidelity=0.5),
             ],
         )
 

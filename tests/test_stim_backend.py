@@ -95,6 +95,12 @@ class StimBackendTest(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             backend_module().qiskit_to_stim(qc)
 
+    def test_unknown_qiskit_gate_warns_when_strict_is_false(self):
+        qc = FakeQiskitCircuit([FakeInstruction("rz", [0])])
+
+        with self.assertWarns(RuntimeWarning):
+            backend_module().qiskit_to_stim(qc, strict=False)
+
     def test_append_operation_with_noise_adds_depolarize1_after_one_qubit_gate(self):
         backend = backend_module()
         err = backend.ErrorParams(one_qubit={0: 0.01}, two_qubit={}, readout={})

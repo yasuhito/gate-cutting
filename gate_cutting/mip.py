@@ -246,6 +246,7 @@ class MIPCutFinder:
                 CutTarget(
                     instruction_index=attr.get("instruction_index", edge_index),
                     qubits=(u, v),
+                    fidelity=float(attr.get("fidelity", 1.0)),
                 )
             )
         return cut_targets

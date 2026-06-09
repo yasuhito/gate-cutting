@@ -55,7 +55,7 @@ class CutSelectionTest(unittest.TestCase):
 
         cuts = cut_targets_from_edges(edges, selected_edge_indices=[1])
 
-        self.assertEqual(cuts, [CutTarget(instruction_index=3, qubits=(0, 1))])
+        self.assertEqual(cuts, [CutTarget(instruction_index=3, qubits=(0, 1), fidelity=0.75)])
 
     def test_collect_cx_edges_defaults_missing_fidelity_to_one(self):
         self.assertEqual(one_missing_fidelity_edge().fidelity, 1.0)

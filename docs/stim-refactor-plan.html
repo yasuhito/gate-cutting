@@ -260,6 +260,21 @@
 リファクタリング作業計画</h1>
 <p>このメモは「Stim
 の箇所をリファクタリングして使えるようにする」ための具体的な作業分解です。</p>
+<h2 id="現在のステータス-2026-06-09">現在のステータス（2026-06-09）</h2>
+<table>
+<thead>
+<tr><th>領域</th><th>状態</th><th>メモ</th></tr>
+</thead>
+<tbody>
+<tr><td>Stim backend 共通化</td><td>完了</td><td><code>qiskit_to_stim()</code>, noise insertion, measurement, expectation を <code>gate_cutting/stim_backend.py</code> に集約。</td></tr>
+<tr><td>Device parsing</td><td>完了</td><td><code>device.json</code> から Fidelity / error / readout / 座標を抽出。</td></tr>
+<tr><td>CX 後の区切り</td><td>完了</td><td><code>I</code> ではなく <code>TICK</code> を使う。実 Stim smoke test で noiseless expectation が変わらないことを確認。</td></tr>
+<tr><td>Gate Cutting target</td><td>完了</td><td><code>CutTarget(instruction_index, qubits, fidelity)</code> で、同一 qubit pair の複数 CX も区別する。</td></tr>
+<tr><td>MIP cut selection</td><td>完了</td><td>greedy fallback は廃止。SciPy <code>milp</code> 必須で、solver 失敗時はエラーにする。</td></tr>
+<tr><td>テスト</td><td>完了</td><td>unit test に加えて、<code>strict=False</code> warning、TICK smoke、noiseless Gate Cutting sanity を追加。</td></tr>
+<tr><td>後回し</td><td>Backlog</td><td>Wire Cutting 全面整理、Tranqu 連携整理、QASM ベンチマーク、パッケージ公開整備。</td></tr>
+</tbody>
+</table>
 <h2 id="結論-まず作るもの">結論: まず作るもの</h2>
 <p>まずは重複している Stim
 関連処理を、実験スクリプトから切り出して共通モジュールにします。</p>
@@ -273,7 +288,10 @@
 tests/
 ├── test_device.py
 ├── test_stim_backend.py
-└── test_gate_cutting.py</code></pre>
+├── test_gate_cutting.py
+├── test_mip.py
+├── test_stim_integration.py
+└── test_test_style.py</code></pre>
 <p>研究コードをすぐ使える形にするだけなら、最初は <code>src/</code>
 なしで <code>gate_cutting/</code>
 直下に置いてもよいです。ただし将来パッケージ化するなら
@@ -336,7 +354,7 @@ class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a hr
 </ul>
 <h3 id="stim_backendpy"><code>stim_backend.py</code></h3>
 <div class="sourceCode" id="cb3"><pre
-class="sourceCode python"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> qiskit_to_stim(qc: QuantumCircuit, <span class="op">*</span>, insert_ticks: <span class="bu">bool</span> <span class="op">=</span> <span class="va">True</span>) <span class="op">-&gt;</span> stim.Circuit: ...</span>
+class="sourceCode python"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> qiskit_to_stim(qc: QuantumCircuit, <span class="op">*</span>, insert_ticks: <span class="bu">bool</span> <span class="op">=</span> <span class="va">True</span>, strict: <span class="bu">bool</span> <span class="op">=</span> <span class="va">True</span>) <span class="op">-&gt;</span> stim.Circuit: ...</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> active_qubits(circuit: stim.Circuit) <span class="op">-&gt;</span> <span class="bu">list</span>[<span class="bu">int</span>]: ...</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> append_operation_with_noise(circuit: stim.Circuit, op_name: <span class="bu">str</span>, targets: <span class="bu">list</span>[<span class="bu">int</span>], error_params: ErrorParams) <span class="op">-&gt;</span> <span class="va">None</span>: ...</span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> add_noise(circuit: stim.Circuit, error_params: ErrorParams) <span class="op">-&gt;</span> stim.Circuit: ...</span>
@@ -356,23 +374,24 @@ class="sourceCode python"><code class="sourceCode python"><span id="cb4-1"><a hr
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> CutTarget:</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    instruction_index: <span class="bu">int</span></span>
 <span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    qubits: <span class="bu">tuple</span>[<span class="bu">int</span>, <span class="bu">int</span>]</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>CX_DECOMPOSITION <span class="op">=</span> [</span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    (<span class="fl">0.5</span>, <span class="st">&quot;I&quot;</span>, <span class="st">&quot;I&quot;</span>),</span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    (<span class="fl">0.5</span>, <span class="st">&quot;Z&quot;</span>, <span class="st">&quot;I&quot;</span>),</span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    (<span class="fl">0.5</span>, <span class="st">&quot;I&quot;</span>, <span class="st">&quot;X&quot;</span>),</span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    (<span class="op">-</span><span class="fl">0.5</span>, <span class="st">&quot;Z&quot;</span>, <span class="st">&quot;X&quot;</span>),</span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>]</span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> find_cx_cut_targets(circuit: stim.Circuit, cut_pairs: <span class="bu">list</span>[<span class="bu">tuple</span>[<span class="bu">int</span>, <span class="bu">int</span>]]) <span class="op">-&gt;</span> <span class="bu">list</span>[CutTarget]: ...</span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> run_gate_cut(circuit: stim.Circuit, cuts: <span class="bu">list</span>[CutTarget], error_params: ErrorParams, shots: <span class="bu">int</span>) <span class="op">-&gt;</span> <span class="bu">float</span>: ...</span></code></pre></div>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    fidelity: <span class="bu">float</span> <span class="op">|</span> <span class="va">None</span> <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>CX_DECOMPOSITION <span class="op">=</span> [</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    (<span class="fl">0.5</span>, <span class="st">&quot;I&quot;</span>, <span class="st">&quot;I&quot;</span>),</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    (<span class="fl">0.5</span>, <span class="st">&quot;Z&quot;</span>, <span class="st">&quot;I&quot;</span>),</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    (<span class="fl">0.5</span>, <span class="st">&quot;I&quot;</span>, <span class="st">&quot;X&quot;</span>),</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    (<span class="op">-</span><span class="fl">0.5</span>, <span class="st">&quot;Z&quot;</span>, <span class="st">&quot;X&quot;</span>),</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> find_cx_cut_targets(circuit: stim.Circuit, cut_pairs: <span class="bu">list</span>[<span class="bu">tuple</span>[<span class="bu">int</span>, <span class="bu">int</span>]]) <span class="op">-&gt;</span> <span class="bu">list</span>[CutTarget]: ...</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> run_gate_cut(circuit: stim.Circuit, cuts: <span class="bu">list</span>[CutTarget], error_params: ErrorParams, shots: <span class="bu">int</span>) <span class="op">-&gt;</span> <span class="bu">float</span>: ...</span></code></pre></div>
 <p>ポイント:</p>
 <ul>
 <li>今の <code>run_cut()</code> は <code>(u, v)</code>
 のペアで切断対象を探すため、同じペアの CX
 が複数あると全部切ってしまう可能性があります。</li>
-<li>可能なら <strong>ペアだけでなく instruction index / gate id
-で切る</strong> 形に直すべきです。</li>
+<li><strong>ペアだけでなく instruction index / gate id
+で切る</strong> 形へ移行済みです。MIP で選ばれた edge の Fidelity は <code>CutTarget.fidelity</code> に残します。</li>
 </ul>
 <h2 id="3-重要な修正ポイント">3. 重要な修正ポイント</h2>
 <h3 id="31-cx-後の-i-を-tick-等に置き換える">3.1 CX 後の <code>I</code>

@@ -87,7 +87,7 @@ def cut_targets_from_edges(
 
     selected = set(selected_edge_indices)
     return [
-        CutTarget(instruction_index=edge.instruction_index, qubits=edge.qubits)
+        CutTarget(instruction_index=edge.instruction_index, qubits=edge.qubits, fidelity=edge.fidelity)
         for edge in edges
         if edge.edge_index in selected
     ]
