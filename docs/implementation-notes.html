@@ -304,7 +304,7 @@
           <ul>
             <li><code>CircuitEdge</code></li>
             <li><code>MIPCutFinder</code></li>
-            <li>test-only fallback</li>
+            <li>SciPy MILP 必須</li>
           </ul>
         </div>
       </div>
@@ -401,15 +401,15 @@ stim_circ.append("TICK")</code></pre>
     </section>
 
     <section>
-      <h2>MIP と fallback</h2>
+      <h2>MIP は SciPy 必須</h2>
       <div class="grid grid-2">
         <article class="card">
           <h3>研究実行環境</h3>
-          <p>研究実行ではこちらを使います。NetworkX / SciPy が利用できる環境で、CX をグラフ edge として扱い、MILP で切断対象を選びます。</p>
+          <p>NetworkX / SciPy を必須依存として入れ、CX をグラフ edge として扱い、SciPy の <code>milp</code> で切断対象を選びます。</p>
         </article>
-        <article class="card">
-          <h3>軽量テスト環境</h3>
-          <p>unit test と依存不足時の安全網です。最適化品質を主張する経路ではなく、低 Fidelity edge を悪い順に選んで API と index 変換を検証します。</p>
+        <article class="card ok">
+          <h3>fallback なし</h3>
+          <p>greedy fallback は廃止しました。SciPy が無い、または MILP solver が失敗した場合は、結果を曖昧にせずエラーとして止めます。</p>
         </article>
       </div>
     </section>

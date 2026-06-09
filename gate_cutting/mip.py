@@ -1,9 +1,8 @@
 """MIP-oriented cut selection helpers.
 
-This module keeps optional solver dependencies out of import time.  The pure
-helpers and greedy fallback are unit-testable without SciPy or NetworkX, while
-``MIPCutFinder.build_graph`` / ``solve`` use them when available in the research
-environment.
+SciPy is a required dependency for solving cut selection.  The lightweight
+``CutGraph`` helpers remain useful for tests and for keeping NetworkX out of
+simple parsing paths, but every solver path goes through ``scipy.optimize.milp``.
 """
 
 from __future__ import annotations
@@ -27,6 +26,14 @@ class CutGraph:
     num_qubits: int
     nodes: dict[int, dict[str, Any]]
     edges: list[CircuitEdge]
+
+
+@dataclass(frozen=True)
+class _MipEdge:
+    edge_index: int
+    control: int
+    target: int
+    fidelity: float
 
 
 def build_cut_graph(
@@ -55,27 +62,20 @@ def build_cut_graph(
     )
 
 
-def select_low_fidelity_cut_targets(
-    edges: Sequence[CircuitEdge],
-    *,
-    max_cuts: int,
-    cut_fidelity_threshold: float,
-) -> list[CutTarget]:
-    """Greedy fallback: cut the worst edges below the fidelity threshold."""
+def _scipy_milp_tools():
+    try:
+        from scipy.optimize import Bounds, LinearConstraint, milp
+        from scipy.sparse import coo_matrix
+    except ModuleNotFoundError as exc:  # pragma: no cover - dependency policy.
+        raise ModuleNotFoundError(
+            "scipy is required for MIP cut selection. Install scipy before running experiments."
+        ) from exc
 
-    if max_cuts <= 0:
-        return []
-
-    low_fidelity_edges = [edge for edge in edges if edge.fidelity < cut_fidelity_threshold]
-    low_fidelity_edges.sort(key=lambda edge: edge.fidelity)
-    return [
-        CutTarget(instruction_index=edge.instruction_index, qubits=edge.qubits)
-        for edge in low_fidelity_edges[:max_cuts]
-    ]
+    return Bounds, LinearConstraint, coo_matrix, milp
 
 
 class MIPCutFinder:
-    """Find concrete CX cut targets using MIP when available, fallback otherwise."""
+    """Find concrete CX cut targets using SciPy MILP."""
 
     def __init__(
         self,
@@ -108,7 +108,7 @@ class MIPCutFinder:
         try:
             import networkx as nx
         except ModuleNotFoundError as exc:  # pragma: no cover - env dependent.
-            raise ModuleNotFoundError("networkx is required for build_graph(); use build_cut_graph() in lightweight tests") from exc
+            raise ModuleNotFoundError("networkx is required for build_graph(); install networkx before running experiments") from exc
 
         cut_graph = self.build_cut_graph(circuit)
         graph = nx.MultiDiGraph()
@@ -130,100 +130,31 @@ class MIPCutFinder:
             )
         return graph
 
-    def solve_cut_graph(
+    def _solve_mip_edge_indices(
         self,
-        cut_graph: CutGraph,
+        nodes: Sequence[tuple[int, Mapping[str, Any]]],
+        edges: Sequence[_MipEdge],
         *,
-        max_cuts: int = 3,
-        cut_fidelity_threshold: float = 0.96,
-    ) -> list[CutTarget]:
-        return select_low_fidelity_cut_targets(
-            cut_graph.edges,
-            max_cuts=max_cuts,
-            cut_fidelity_threshold=cut_fidelity_threshold,
-        )
-
-    def _cut_targets_from_edge_indices(self, graph: Any, edges: Sequence[Any], selected_edge_indices: Sequence[int]) -> list[CutTarget]:
-        cx_edges = getattr(graph, "graph", {}).get("cx_edges")
-        if cx_edges is not None:
-            return cut_targets_from_edges(cx_edges, selected_edge_indices=selected_edge_indices)
-
-        cut_targets: list[CutTarget] = []
-        for edge_index in selected_edge_indices:
-            u, v, _, attr = edges[edge_index]
-            cut_targets.append(
-                CutTarget(
-                    instruction_index=attr.get("instruction_index", edge_index),
-                    qubits=(u, v),
-                )
-            )
-        return cut_targets
-
-    def solve(
-        self,
-        graph: Any,
-        max_cuts: int = 3,
-        cut_fidelity_threshold: float = 0.96,
-    ) -> list[CutTarget]:
-        """Solve cut selection on a NetworkX graph, using SciPy MILP if present."""
-
-        if isinstance(graph, CutGraph):
-            return self.solve_cut_graph(
-                graph,
-                max_cuts=max_cuts,
-                cut_fidelity_threshold=cut_fidelity_threshold,
-            )
-
-        edges = list(graph.edges(keys=True, data=True))
-        n_edges = len(edges)
-        if n_edges == 0 or max_cuts <= 0:
+        max_cuts: int,
+        cut_fidelity_threshold: float,
+    ) -> list[int]:
+        if not edges or max_cuts <= 0:
             return []
 
-        try:
-            from scipy.optimize import Bounds, LinearConstraint, milp
-            from scipy.sparse import coo_matrix
-        except ModuleNotFoundError:
-            logger.warning("SciPy not available. Falling back to greedy low-fidelity cut selection.")
-            cx_edges = graph.graph.get("cx_edges")
-            if cx_edges is not None:
-                return select_low_fidelity_cut_targets(
-                    cx_edges,
-                    max_cuts=max_cuts,
-                    cut_fidelity_threshold=cut_fidelity_threshold,
-                )
-            fallback_indices = [
-                attr.get("edge_index", index)
-                for index, (_, _, _, attr) in enumerate(edges)
-                if attr.get("fidelity", 1.0) < cut_fidelity_threshold
-            ][:max_cuts]
-            return self._cut_targets_from_edge_indices(graph, edges, fallback_indices)
+        Bounds, LinearConstraint, coo_matrix, milp = _scipy_milp_tools()
 
-        nodes = list(graph.nodes(data=True))
+        node_to_idx = {node_id: index for index, (node_id, _) in enumerate(nodes)}
         n_nodes = len(nodes)
-        node_to_idx = {node_id: i for i, (node_id, _) in enumerate(nodes)}
+        n_edges = len(edges)
         n_vars = n_nodes + n_edges
 
         c = np.zeros(n_vars)
-        lower_bounds = np.zeros(n_vars)
-        upper_bounds = np.ones(n_vars)
-
-        bad_edges = []
-        for k, (_, _, _, attr) in enumerate(edges):
-            fidelity = attr.get("fidelity", 1.0)
-            if fidelity < cut_fidelity_threshold:
-                bad_edges.append((k, fidelity))
-        bad_edges.sort(key=lambda item: item[1])
-        force_cut_indices = {k for k, _ in bad_edges[:max_cuts]}
-
-        for k, (_, _, _, attr) in enumerate(edges):
-            fidelity = attr.get("fidelity", 1.0)
+        for k, edge in enumerate(edges):
             z_idx = n_nodes + k
-            if k in force_cut_indices:
-                c[z_idx] = 0.0
-                lower_bounds[z_idx] = 1.0
+            if edge.fidelity < cut_fidelity_threshold:
+                c[z_idx] = edge.fidelity - cut_fidelity_threshold
             else:
-                error_rate = max(1.0 - fidelity, 1e-9)
-                c[z_idx] = fidelity / error_rate
+                c[z_idx] = 1e-6 + edge.fidelity - cut_fidelity_threshold
 
         rows: list[int] = []
         cols: list[int] = []
@@ -232,9 +163,9 @@ class MIPCutFinder:
         b_u: list[float] = []
         constraint_idx = 0
 
-        for k, (u, v, _, _) in enumerate(edges):
-            u_idx = node_to_idx[u]
-            v_idx = node_to_idx[v]
+        for k, edge in enumerate(edges):
+            u_idx = node_to_idx[edge.control]
+            v_idx = node_to_idx[edge.target]
             z_idx = n_nodes + k
 
             rows.extend([constraint_idx] * 3)
@@ -259,41 +190,98 @@ class MIPCutFinder:
         b_u.append(max_cuts)
         constraint_idx += 1
 
-        total_node_fidelity = sum(attrs.get("fidelity", 1.0) for _, attrs in nodes)
-        for i, (_, attrs) in enumerate(nodes):
-            rows.append(constraint_idx)
-            cols.append(i)
-            vals.append(attrs.get("fidelity", 1.0))
-        b_l.append(0)
-        b_u.append(total_node_fidelity)
-        constraint_idx += 1
-
         matrix = coo_matrix((vals, (rows, cols)), shape=(constraint_idx, n_vars))
         result = milp(
             c=c,
             constraints=LinearConstraint(matrix, b_l, b_u),
             integrality=np.ones(n_vars),
-            bounds=Bounds(lower_bounds, upper_bounds),
+            bounds=Bounds(np.zeros(n_vars), np.ones(n_vars)),
         )
 
         if not result.success:
-            logger.warning("MIP solver failed. Falling back to greedy low-fidelity cut selection.")
-            cx_edges = graph.graph.get("cx_edges")
-            if cx_edges is not None:
-                return select_low_fidelity_cut_targets(
-                    cx_edges,
-                    max_cuts=max_cuts,
-                    cut_fidelity_threshold=cut_fidelity_threshold,
-                )
-            return []
+            message = getattr(result, "message", "unknown solver failure")
+            raise RuntimeError(f"MIP solver failed: {message}")
 
-        selected_edge_indices = [
-            edges[k][3].get("edge_index", k)
-            for k in range(n_edges)
+        selected = [
+            edge.edge_index
+            for k, edge in enumerate(edges)
             if result.x[n_nodes + k] > 0.5
         ]
-        if len(selected_edge_indices) > max_cuts:
-            selected_edge_indices.sort(key=lambda edge_index: edges[edge_index][3].get("fidelity", 1.0))
-            selected_edge_indices = selected_edge_indices[:max_cuts]
+        logger.info("MIP selected %d cuts (max %d).", len(selected), max_cuts)
+        return selected
 
+    def solve_cut_graph(
+        self,
+        cut_graph: CutGraph,
+        *,
+        max_cuts: int = 3,
+        cut_fidelity_threshold: float = 0.96,
+    ) -> list[CutTarget]:
+        mip_edges = [
+            _MipEdge(
+                edge_index=edge.edge_index,
+                control=edge.qubits[0],
+                target=edge.qubits[1],
+                fidelity=edge.fidelity,
+            )
+            for edge in cut_graph.edges
+        ]
+        selected_edge_indices = self._solve_mip_edge_indices(
+            list(cut_graph.nodes.items()),
+            mip_edges,
+            max_cuts=max_cuts,
+            cut_fidelity_threshold=cut_fidelity_threshold,
+        )
+        return cut_targets_from_edges(cut_graph.edges, selected_edge_indices=selected_edge_indices)
+
+    def _cut_targets_from_edge_indices(self, graph: Any, edges: Sequence[Any], selected_edge_indices: Sequence[int]) -> list[CutTarget]:
+        cx_edges = getattr(graph, "graph", {}).get("cx_edges")
+        if cx_edges is not None:
+            return cut_targets_from_edges(cx_edges, selected_edge_indices=selected_edge_indices)
+
+        cut_targets: list[CutTarget] = []
+        for edge_index in selected_edge_indices:
+            u, v, _, attr = edges[edge_index]
+            cut_targets.append(
+                CutTarget(
+                    instruction_index=attr.get("instruction_index", edge_index),
+                    qubits=(u, v),
+                )
+            )
+        return cut_targets
+
+    def solve(
+        self,
+        graph: Any,
+        max_cuts: int = 3,
+        cut_fidelity_threshold: float = 0.96,
+    ) -> list[CutTarget]:
+        """Solve cut selection with SciPy MILP."""
+
+        if isinstance(graph, CutGraph):
+            return self.solve_cut_graph(
+                graph,
+                max_cuts=max_cuts,
+                cut_fidelity_threshold=cut_fidelity_threshold,
+            )
+
+        edges = list(graph.edges(keys=True, data=True))
+        if not edges or max_cuts <= 0:
+            return []
+
+        mip_edges = [
+            _MipEdge(
+                edge_index=attr.get("edge_index", index),
+                control=u,
+                target=v,
+                fidelity=float(attr.get("fidelity", 1.0)),
+            )
+            for index, (u, v, _, attr) in enumerate(edges)
+        ]
+        selected_edge_indices = self._solve_mip_edge_indices(
+            list(graph.nodes(data=True)),
+            mip_edges,
+            max_cuts=max_cuts,
+            cut_fidelity_threshold=cut_fidelity_threshold,
+        )
         return self._cut_targets_from_edge_indices(graph, edges, selected_edge_indices)

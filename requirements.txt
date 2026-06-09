@@ -1,0 +1,8 @@
+numpy
+matplotlib
+tqdm
+qiskit
+qiskit-aer
+stim
+networkx
+scipy
