@@ -441,3 +441,67 @@ layout: full
     <span><SlideCurrentNo /> / <SlidesTotal /></span>
   </div>
 </div>
+
+---
+layout: full
+---
+
+<div class="board">
+  <div class="slide-head">
+    <span class="kicker">GATE CUTTING ─ 補足</span>
+    <h2>補足:切断対象を選ぶ <span class="accent">MIP の評価関数と制約条件</span></h2>
+  </div>
+  <div class="slide-body">
+    <p class="s6-lead">「どこを切るか」(ボード 3)の中身。実装(<code>mip.py</code>)の定式化をそのまま示す。回路は「量子ビット = 点、CX 命令 = 線(較正フィデリティ付き)」のグラフ。</p>
+    <div class="s6-grid">
+      <div class="s6-col">
+        <div class="card">
+          <h3>0/1 変数</h3>
+          <ul class="rule-list">
+            <li><b><i>u<sub>i</sub></i> ∈ {0, 1}</b> — 量子ビット <i>i</i> の所属グループ(量子ビットごとに 1 個)</li>
+            <li><b><i>z<sub>e</sub></i> ∈ {0, 1}</b> — CX 候補 <i>e</i> を切るか(CX 命令ごとに 1 個。同じ量子ビットペアに CX が複数あっても命令番号で別の変数)</li>
+          </ul>
+        </div>
+        <div class="formula-band fill-col">
+          <b>評価関数(最小化)</b> ─ フィデリティが低い CX ほど「切ると得」
+          <div class="formula">minimize&nbsp;&nbsp;Σ<sub>e</sub> c<sub>e</sub> · z<sub>e</sub></div>
+          <div class="s6-cases">
+            c<sub>e</sub> = F<sub>e</sub> − 0.96 <span class="s6-dim">(F<sub>e</sub> &lt; しきい値 0.96 → 負: 切るほど目的関数が下がる)</span><br>
+            c<sub>e</sub> = F<sub>e</sub> − 0.96 + 10<sup>−6</sup> <span class="s6-dim">(F<sub>e</sub> ≥ しきい値 → 正: 切ると必ず損)</span>
+          </div>
+          <svg viewBox="0 0 480 96" width="480" height="96" role="img" aria-label="コスト関数の数直線">
+            <line x1="30" y1="58" x2="290" y2="58" stroke="#dc2626" stroke-width="5"/>
+            <line x1="290" y1="58" x2="450" y2="58" stroke="#94a3b8" stroke-width="5"/>
+            <line x1="290" y1="40" x2="290" y2="76" stroke="#1e293b" stroke-width="2"/>
+            <circle cx="160" cy="58" r="7" fill="#dc2626"/>
+            <text x="160" y="84" style="font-size:13px" fill="#dc2626" text-anchor="middle" font-weight="700">F = 0.93 の CX</text>
+            <text x="290" y="92" style="font-size:13px" fill="#1e293b" text-anchor="middle">しきい値 0.96</text>
+            <text x="155" y="28" style="font-size:14px" fill="#dc2626" text-anchor="middle" font-weight="700">コスト負 = 切ると得</text>
+            <text x="372" y="28" style="font-size:14px" fill="#64748b" text-anchor="middle">コスト正 = 切らない</text>
+            <text x="455" y="62" style="font-size:13px" fill="#64748b">F<tspan dy="3" style="font-size:10px">e</tspan></text>
+          </svg>
+        </div>
+      </div>
+      <div class="s6-col">
+        <div class="card fill-col">
+          <h3>制約条件</h3>
+          <ul class="rule-list">
+            <li><b>切断本数の上限:</b> Σ<sub>e</sub> z<sub>e</sub> ≤ <code>max_cuts</code>(既定 3)。4<sup>k</sup> のショット数爆発を抑える予算制約</li>
+            <li><b>グループ整合:</b> z<sub>e</sub> ≥ |u<sub>a</sub> − u<sub>b</sub>| ─ グループをまたぐ CX は必ず切る(回路の 2 分割を表現できる。完全な分離は強制しない)。実装では 2 本の線形不等式 −u<sub>a</sub> + u<sub>b</sub> + z<sub>e</sub> ≥ 0、u<sub>a</sub> − u<sub>b</sub> + z<sub>e</sub> ≥ 0 に展開</li>
+            <li><b>整数条件:</b> 全変数が 0/1 の混合整数線形計画。ソルバは SciPy <code>milp</code>(HiGHS)で、実機トポロジー規模でも数秒で解ける</li>
+          </ul>
+        </div>
+        <div class="cost-band">
+          <b>性質と限界:</b>
+          良い CX は微小ペナルティ 10<sup>−6</sup> のせいで切っても必ず損 → 無駄な切断は自然に 0 本に収束し、
+          悪い CX だけがフィデリティの低い順に予算内で選ばれる。
+          論文はさらに「バランス制約(部分回路のサイズ・フィデリティの均等化)」を挙げているが、現実装は未対応(今後の課題)。
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-foot">
+    <span>ゲートカッティングの仕組み ─ mip.py: MIPCutFinder._solve_mip_edge_indices()</span>
+    <span><SlideCurrentNo /> / <SlidesTotal /></span>
+  </div>
+</div>

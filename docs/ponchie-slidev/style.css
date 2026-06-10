@@ -290,3 +290,11 @@
 .s5-grid .card h3 { font-size: 18px; }
 .s5-grid .card p { font-size: 15px; }
 .s5-tradeoff { margin-top: 14px; }
+
+/* ---- スライド6(補足: MIP 定式化) ---- */
+.s6-lead { font-size: 16px; color: #334155; margin: 0 0 14px; }
+.s6-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 14px; }
+.s6-col { display: flex; flex-direction: column; gap: 14px; }
+.s6-grid .rule-list { font-size: 15px; }
+.s6-cases { font-size: 15.5px; margin: 6px 0 4px; line-height: 1.7; }
+.s6-dim { color: var(--muted); font-size: 13.5px; }
