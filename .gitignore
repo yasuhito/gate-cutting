@@ -16,6 +16,10 @@ dist/
 venv/
 env/
 
+# Node (Slidev ponchie deck)
+node_modules/
+docs/ponchie-slidev/dist/
+
 # OS/editor metadata
 .DS_Store
 __MACOSX/

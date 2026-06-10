@@ -1,0 +1,15 @@
+{
+  "name": "gate-cutting-ponchie",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "slidev slides.md --open",
+    "export": "slidev export slides.md --format pdf --output ../ponchie/gate-cutting-ponchie.pdf"
+  },
+  "type": "commonjs",
+  "devDependencies": {
+    "@slidev/cli": "^52.16.0",
+    "@slidev/theme-default": "^0.25.0",
+    "playwright-chromium": "^1.60.0"
+  },
+  "private": true
+}
