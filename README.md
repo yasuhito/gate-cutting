@@ -1,5 +1,7 @@
 # OQTOPUS 向けゲートカッティングコンポーネント
 
+[![CI](https://github.com/yasuhito/gate-cutting/actions/workflows/ci.yml/badge.svg)](https://github.com/yasuhito/gate-cutting/actions/workflows/ci.yml)
+
 このリポジトリは、論文著者が研究用に作成したゲートカッティング / ワイヤーカッティング実験スクリプトを整理し、OQTOPUS の一部として実際に動かせる品質まで高めるためのリファクタリングプロジェクトです。
 
 現在は、実験スクリプトに散らばっていた Stim 変換、デバイス情報の読み込み、MIP による切断対象選択、ゲートカッティング実行処理を `src/gate_cutting/` にコンポーネント化しています。`experiments/` と `legacy/` は、元論文の再現・比較・現状仕様確認のために残しています。

@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  checks:
+    name: Ruff / tests / mypy / build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Run Ruff
+        run: python -m ruff check src tests
+
+      - name: Run unittest
+        run: python -m unittest discover -v
+
+      - name: Run pytest
+        run: python -m pytest -q
+
+      - name: Run mypy
+        run: python -m mypy src
+
+      - name: Compile Python files
+        run: >-
+          python -m py_compile
+          src/gate_cutting/*.py
+          tests/*.py
+          experiments/exp1/b1.py
+          experiments/exp2/b1.py
+          experiments/exp2/b2.py
+          experiments/exp2/check.py
+          experiments/exp2/benchmark_phase1.py
+          experiments/exp2/benchmark_phase2.py
+
+      - name: Build package
+        run: python -m build
